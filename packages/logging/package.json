@@ -1,0 +1,17 @@
+{
+  "name": "@naulabs/logging",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "@naulabs/source": "./src/index.ts",
+      "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
+      "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.js" }
+    }
+  },
+  "files": ["dist", "src"],
+  "types": "./dist/esm/index.d.ts",
+  "publishConfig": { "access": "public" },
+  "peerDependencies": {"@nestjs/common": "^12.0.0", "nestjs-pino": "^5.0.0", "pino": "^10.0.0"}
+}

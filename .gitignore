@@ -4,6 +4,7 @@ dist/
 coverage/
 .nx/
 .build-fixture/
+.pack-smoke/
 *.tsbuildinfo
 .env
 .env.*
