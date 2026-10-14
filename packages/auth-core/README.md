@@ -30,3 +30,13 @@ lifetimes. It fails when the active key id is absent from the key map, rejects a
 or low-diversity, and bounds each lifetime. Generate a key with `openssl rand -base64 32`; the
 `audience` must be unique to this deployment, because HS256 verifies anywhere that shares a secret.
 
+## Passwords
+
+`createPasswordVerifier()` hashes with argon2id at the pinned `ARGON2_OPTIONS`. The bcrypt path is
+**off by default**: a `bcrypt` credential is refused unless the verifier is created with
+`createPasswordVerifier({ bcrypt: true })`, and a successful bcrypt verify returns an argon2id
+`rehash` to store. `hash()` only ever emits argon2id, so an imported scheme cannot become the default.
+bcrypt is an optional peer, loaded only when opted in, so a consumer that never enables it does not
+build that native module. Note that bcrypt truncates a password at 72 bytes. Both schemes are native
+modules: a consumer's package manager must be allowed to run their install scripts.
+

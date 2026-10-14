@@ -1,5 +1,7 @@
 packages:
   - 'packages/*'
 allowBuilds:
+  argon2: true
+  bcrypt: true
   esbuild: true
   nx: true
