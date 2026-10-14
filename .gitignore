@@ -1,0 +1,11 @@
+.scratch/
+node_modules/
+dist/
+coverage/
+.nx/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
