@@ -15,19 +15,20 @@ class PlanExpired extends DomainError {
 throw new PlanExpired({ plan: 'free' });
 ```
 
-`ApplicationError.fromDomain` is the only place a domain error becomes an application error; call it
-at the boundary:
+`ApplicationError.fromDomain` is the only place a domain error becomes an application error. Give it a
+code → status map and a mapped domain error keeps its code and criteria at that status:
 
 ```ts
-throw ApplicationError.fromDomain(error);
+const statusFor = { PLAN_EXPIRED: 402 };
+
+throw ApplicationError.fromDomain(error, statusFor);
 ```
 
-A `DomainError` keeps its `code` and `criteria`, and `fromDomain` marks the result 500 — it is the
-unexpected-error path. Raise the matching kind at the boundary when the failure is expected. Anything
-else becomes a 500 `InfrastructureError` with no message, stack or original detail. Each kind fixes
-its status and is abstract on `code`, so a subclass names the failure: 400 `ValidationError`, 401
-`UnauthorizedError`, 403 `ForbiddenError`, 404 `NotFoundError`, 409 `ConflictError`, 500
-`InfrastructureError`.
+An unmapped code — or anything that is not a `DomainError` — becomes a 500 `InfrastructureError` with
+no message, stack or original detail, and a mapped status outside 400–599 is ignored (fail-closed).
+Each kind fixes its own status and is abstract on `code`, so a subclass names the failure: 400
+`ValidationError`, 401 `UnauthorizedError`, 403 `ForbiddenError`, 404 `NotFoundError`, 409
+`ConflictError`, 500 `InfrastructureError`.
 
 `criteria` is passed through by reference; keep credentials and tokens out of it.
 
