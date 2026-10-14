@@ -30,3 +30,22 @@ its status and is abstract on `code`, so a subclass names the failure: 400 `Vali
 `InfrastructureError`.
 
 `criteria` is passed through by reference; keep credentials and tokens out of it.
+
+## HTTP filter
+
+Register the filter and let it shape the body through a serializer you own:
+
+```ts
+import { createExceptionFilter, defaultEnvelopeSerializer } from '@naulabs/errors';
+
+const Filter = createExceptionFilter(defaultEnvelopeSerializer());
+app.useGlobalFilters(new Filter());
+```
+
+`createExceptionFilter` closes over the serializer, so Nest instantiates the returned class with no DI
+provider. `HttpExceptionFilter` maps an `ApplicationError` to its status, code and criteria, a
+`ZodError` to 400, a Nest `HttpException` to its own status under a generic code, and anything else to
+a 500 `INTERNAL_ERROR` with no message, stack or SQL; a 5xx is logged and never carries `criteria`. It
+targets Nest's default Express adapter. Supply your own `EnvelopeSerializer` to change the body and
+nothing else.
+

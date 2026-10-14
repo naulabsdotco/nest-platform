@@ -7,6 +7,7 @@
     "moduleResolution": "bundler",
     "customConditions": ["@naulabs/source"],
     "strict": true,
+    "experimentalDecorators": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
