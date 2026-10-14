@@ -40,3 +40,14 @@ bcrypt is an optional peer, loaded only when opted in, so a consumer that never 
 build that native module. Note that bcrypt truncates a password at 72 bytes. Both schemes are native
 modules: a consumer's package manager must be allowed to run their install scripts.
 
+## Tokens
+
+`createTokenService(cfg)` signs HS256 access tokens pinned to the active kid, `iss` and `aud`, with the
+payload `{ sub, typ: 'access' }` and nothing else — no scope, role or email, so changing authorization
+needs no token revocation. `verifyAccess` returns `{ sub }` and throws `AuthInvalidTokenError` on every
+failure. Rotating `activeKid` keeps old tokens verifying while the key map still holds their key.
+`verifyAccess` returns `{ sub }` only, so any extra claim a token carries is never trusted; `iss` is
+matched exactly and `aud` may be a string or an array containing the configured audience. An access
+token cannot be revoked, so keep its TTL short and pair it with the refresh flow.
+
+
