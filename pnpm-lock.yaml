@@ -90,6 +90,10 @@ importers:
       pino:
         specifier: ^10.0.0
         version: 10.4.0
+    devDependencies:
+      pino-http:
+        specifier: ^11.0.0
+        version: 11.0.0
 
 packages:
 
