@@ -1,0 +1,17 @@
+{
+  "name": "@naulabs/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "@naulabs/source": "./src/index.ts",
+      "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
+      "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.js" }
+    }
+  },
+  "files": ["dist", "src"],
+  "types": "./dist/esm/index.d.ts",
+  "publishConfig": { "access": "public" },
+  "peerDependencies": {"zod": "^4.0.0"}
+}

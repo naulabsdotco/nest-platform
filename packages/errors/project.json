@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "errors",
+  "root": "packages/errors",
+  "projectType": "library",
+  "tags": ["scope:platform"],
+  "targets": {
+    "build": { "command": "node tools/build.mjs {projectRoot}" },
+    "lint": { "command": "eslint {projectRoot}" },
+    "typecheck": { "command": "tsc --noEmit -p {projectRoot}/tsconfig.lib.json" },
+    "test": { "command": "vitest run --root {projectRoot} --passWithNoTests" }
+  }
+}
