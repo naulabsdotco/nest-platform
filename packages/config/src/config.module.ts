@@ -2,7 +2,8 @@ import { Global, Module, type DynamicModule, type InjectionToken } from '@nestjs
 import type { z } from 'zod';
 import { loadEnv, type EnvReader } from './load-env';
 
-export const APP_CONFIG: InjectionToken<unknown> = Symbol('APP_CONFIG');
+// Symbol.for so a dual ESM/CJS install resolves one token from either copy.
+export const APP_CONFIG: InjectionToken<unknown> = Symbol.for('@naulabs/config/APP_CONFIG');
 
 @Global()
 @Module({})

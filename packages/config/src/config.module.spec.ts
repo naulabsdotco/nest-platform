@@ -14,6 +14,11 @@ afterEach(async () => {
 });
 
 describe('createConfigModule', () => {
+  it('APP_CONFIG is one process-wide token, not a per-copy symbol', () => {
+    // A dual ESM/CJS install must resolve the same injection token from both copies.
+    expect(Symbol.keyFor(APP_CONFIG as symbol)).toBe('@naulabs/config/APP_CONFIG');
+  });
+
   it('the module fails Nest bootstrap when APP_CONFIG cannot be built', async () => {
     @Module({ imports: [createConfigModule(schema, { raw: {} })] })
     class App {}
