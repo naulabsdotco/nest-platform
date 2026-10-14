@@ -19,7 +19,7 @@ export function defaultEnvelopeSerializer(): EnvelopeSerializer {
         timestamp,
         path: req.path,
         method: req.method,
-        ...(error.criteria === undefined ? {} : { criteria: error.criteria }),
+        ...(error.statusCode < 500 && error.criteria !== undefined ? { criteria: error.criteria } : {}),
       };
     },
   };

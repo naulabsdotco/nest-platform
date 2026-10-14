@@ -44,6 +44,8 @@ app.useGlobalFilters(new Filter());
 
 `createExceptionFilter` closes over the serializer, so Nest instantiates the returned class with no DI
 provider. `HttpExceptionFilter` maps an `ApplicationError` to its status, code and criteria, a
-`ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no message, stack or SQL. Supply
-your own `EnvelopeSerializer` to change the body and nothing else.
+`ZodError` to 400, a Nest `HttpException` to its own status under a generic code, and anything else to
+a 500 `INTERNAL_ERROR` with no message, stack or SQL; a 5xx is logged and never carries `criteria`. It
+targets Nest's default Express adapter. Supply your own `EnvelopeSerializer` to change the body and
+nothing else.
 
