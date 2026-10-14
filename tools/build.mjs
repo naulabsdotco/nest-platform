@@ -1,4 +1,4 @@
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'tsup';
@@ -20,20 +20,17 @@ export async function buildPackage(dir) {
       sourcemap: true,
       clean: true,
       silent: true,
+      tsconfig: join(dir, 'tsconfig.json'),
+      // tsup would name the CJS entry index.cjs; the exports map points require at index.js,
+      // and dist/cjs/package.json marks the folder CommonJS.
+      outExtension: () => ({ js: '.js' }),
     });
   }
-  // Without this marker Node reads dist/cjs/index.js as ESM under a "type": "module" package.
   const cjsDir = join(dir, 'dist/cjs');
   await mkdir(cjsDir, { recursive: true });
   await writeFile(join(cjsDir, 'package.json'), '{ "type": "commonjs" }\n');
 }
 
-const packageDirs = async (root) => {
-  const entries = await readdir(join(root, 'packages'), { withFileTypes: true }).catch(() => []);
-  return entries.filter((entry) => entry.isDirectory()).map((entry) => join(root, 'packages', entry.name));
-};
-
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const root = process.cwd();
-  for (const dir of await packageDirs(root)) await buildPackage(dir);
+  await buildPackage(process.argv[2] ?? process.cwd());
 }
