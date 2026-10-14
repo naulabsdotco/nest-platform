@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildPackage } from '../tools/build.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -10,11 +10,13 @@ const scratch = join(root, '.pack-smoke');
 const packages = ['config', 'logging', 'errors', 'auth-core'];
 // The fixture pins the majors a consumer would install alongside the packages.
 const majors = { '@nestjs/common': '^12.0.0', zod: '^4.0.0', postgres: '^3.0.0' };
+const parityCheck = pathToFileURL(join(root, 'scripts/export-conditions.mjs')).href;
 
 // A non-empty surface is the probe: an empty barrel makes this fail, which is the
 // point — pack-smoke has to be red before a package exports anything.
 const check = `
 import { createRequire } from 'node:module';
+import { typeMismatches } from ${JSON.stringify(parityCheck)};
 const load = createRequire(import.meta.url);
 const names = ${JSON.stringify(packages)};
 for (const name of names) {
@@ -26,7 +28,8 @@ for (const name of names) {
   if (fromEsm.join(',') !== fromCjs.join(',')) {
     throw new Error(name + ': surfaces differ: ' + fromEsm + ' vs ' + fromCjs);
   }
-  if (esm.packageName !== '@naulabs/' + name) throw new Error(name + ': wrong packageName');
+  const mismatches = typeMismatches(esm, cjs);
+  if (mismatches.length > 0) throw new Error(name + ': export types differ: ' + mismatches.join(', '));
 }
 console.log('pack-smoke: ' + names.length + ' packages export the same surface under import and require');
 `;

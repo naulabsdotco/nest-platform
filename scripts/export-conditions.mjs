@@ -10,6 +10,18 @@ export function readPackageJson(packageDir) {
 const DIST = { import: '/dist/esm/index.js', require: '/dist/cjs/index.js' };
 const TYPES = { import: '.d.ts', require: '.d.cts' };
 
+// A key exported by both formats must carry the same typeof; a mismatch means the
+// builds expose different values under one name.
+export function typeMismatches(esm, cjs) {
+  const mismatches = [];
+  for (const key of Object.keys(esm)) {
+    if (typeof cjs[key] !== typeof esm[key]) {
+      mismatches.push(`${key}: ${typeof esm[key]} vs ${typeof cjs[key]}`);
+    }
+  }
+  return mismatches;
+}
+
 export function checkExports(name, pkg, packageDir) {
   const entry = pkg.exports?.['.'] ?? {};
   const problems = [];
