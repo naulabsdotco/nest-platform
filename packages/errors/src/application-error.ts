@@ -1,4 +1,4 @@
-import { DomainError } from './domain-error.js';
+import { DomainError } from './domain-error';
 
 export abstract class ApplicationError extends Error {
   abstract readonly code: string;

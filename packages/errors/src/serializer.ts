@@ -1,4 +1,4 @@
-import type { ApplicationError } from './application-error.js';
+import type { ApplicationError } from './application-error';
 
 export interface ErrorRequest {
   readonly method: string;

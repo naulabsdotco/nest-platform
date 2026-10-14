@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { InfrastructureError } from './application-error.js';
-import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from './kinds.js';
+import { InfrastructureError } from './application-error';
+import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from './kinds';
 
 class Conflict extends ConflictError { readonly code = 'CONFLICT'; }
 class Forbidden extends ForbiddenError { readonly code = 'FORBIDDEN'; }

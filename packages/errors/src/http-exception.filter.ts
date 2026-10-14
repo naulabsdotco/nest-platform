@@ -1,8 +1,8 @@
 import { Catch, HttpException, Logger } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter, Type } from '@nestjs/common';
-import { ApplicationError } from './application-error.js';
-import { ValidationError } from './kinds.js';
-import type { EnvelopeSerializer, ErrorRequest } from './serializer.js';
+import { ApplicationError } from './application-error';
+import { ValidationError } from './kinds';
+import type { EnvelopeSerializer, ErrorRequest } from './serializer';
 
 class RequestValidationError extends ValidationError {
   readonly code = 'REQUEST_VALIDATION_FAILED';
