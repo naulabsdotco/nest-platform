@@ -3,39 +3,21 @@
   "version": "0.0.0",
   "description": "Zod environment loader that parses at boot and never echoes values.",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/naulabsdotco/nest-platform.git",
-    "directory": "packages/config"
-  },
+  "repository": { "type": "git", "url": "git+https://github.com/naulabsdotco/nest-platform.git", "directory": "packages/config" },
   "private": true,
   "type": "module",
   "sideEffects": false,
   "exports": {
     ".": {
       "@naulabs/source": "./src/index.ts",
-      "import": {
-        "types": "./dist/esm/index.d.ts",
-        "default": "./dist/esm/index.js"
-      },
-      "require": {
-        "types": "./dist/cjs/index.d.cts",
-        "default": "./dist/cjs/index.js"
-      }
+      "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
+      "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.js" }
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist",
-    "src"
-  ],
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
-  "peerDependencies": {
-    "zod": "^4.0.0"
-  },
+  "files": ["dist", "src"],
+  "publishConfig": { "access": "public", "provenance": true },
+  "peerDependencies": {"zod":"^4.0.0"},
   "scripts": {
     "prepack": "node ../../scripts/publish-manifest.mjs strip",
     "postpack": "node ../../scripts/publish-manifest.mjs restore"
