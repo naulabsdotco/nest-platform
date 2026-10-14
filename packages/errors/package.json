@@ -1,17 +1,43 @@
 {
   "name": "@naulabs/errors",
   "version": "0.0.0",
+  "description": "Domain and application error taxonomy, fromDomain translation and a pluggable-envelope HTTP filter.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/naulabsdotco/nest-platform.git",
+    "directory": "packages/errors"
+  },
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "@naulabs/source": "./src/index.ts",
-      "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
-      "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.js" }
-    }
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.cts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./package.json": "./package.json"
   },
-  "files": ["dist", "src"],
-  "types": "./dist/esm/index.d.ts",
-  "publishConfig": { "access": "public" },
-  "peerDependencies": {"@nestjs/common": "^12.0.0"}
+  "files": [
+    "dist",
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^12.0.0"
+  },
+  "scripts": {
+    "prepack": "node ../../scripts/publish-manifest.mjs strip",
+    "postpack": "node ../../scripts/publish-manifest.mjs restore"
+  }
 }

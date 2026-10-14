@@ -5,6 +5,7 @@ coverage/
 .nx/
 .build-fixture/
 .pack-smoke/
+.publish-backup.json
 *.tsbuildinfo
 .env
 .env.*
