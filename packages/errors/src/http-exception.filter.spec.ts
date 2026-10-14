@@ -2,7 +2,8 @@ import { Logger, NotFoundException } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
-import { ApplicationError, InfrastructureError } from './application-error.js';
+import { ApplicationError, InfrastructureError, type StatusMap } from './application-error.js';
+import { DomainError } from './domain-error.js';
 import { HttpExceptionFilter, createExceptionFilter } from './http-exception.filter.js';
 import { NotFoundError } from './kinds.js';
 import { defaultEnvelopeSerializer, type EnvelopeSerializer, type ErrorRequest } from './serializer.js';
@@ -13,6 +14,10 @@ class ProjectNotFound extends NotFoundError {
 
 class DatabaseError extends InfrastructureError {
   readonly code = 'DB_UNAVAILABLE';
+}
+
+class ProjectMissing extends DomainError {
+  readonly code = 'PROJECT_NOT_FOUND';
 }
 
 const hostFor = (request: ErrorRequest = { method: 'GET', path: '/projects/1' }) => {
@@ -89,6 +94,27 @@ describe('HttpExceptionFilter', () => {
     expect(body).not.toHaveProperty('criteria');
   });
 
+  it('a thrown mapped DomainError renders the mapped status through the serializer', () => {
+    const { response, argumentsHost } = hostFor();
+    const statusFor: StatusMap = { PROJECT_NOT_FOUND: 404 };
+
+    new HttpExceptionFilter(defaultEnvelopeSerializer(), statusFor).catch(new ProjectMissing({ id: '1' }), argumentsHost);
+
+    expect(response.body).toMatchObject({
+      statusCode: 404,
+      errorCode: 'PROJECT_NOT_FOUND',
+      criteria: { id: '1' },
+    });
+  });
+
+  it('an unmapped DomainError renders 500 INTERNAL_ERROR with no detail', () => {
+    const body = render(new ProjectMissing({ id: '1' })).body as Record<string, unknown>;
+
+    expect(body.statusCode).toBe(500);
+    expect(body.errorCode).toBe('INTERNAL_ERROR');
+    expect(body).not.toHaveProperty('criteria');
+  });
+
   it('a Nest HttpException renders its status with a non-leaking code', () => {
     const body = render(new NotFoundException('project 42 does not exist')).body as Record<string, unknown>;
 
@@ -155,12 +181,12 @@ describe('HttpExceptionFilter', () => {
     expect(() => new HttpExceptionFilter(defaultEnvelopeSerializer()).catch(original, host)).toThrow(original);
   });
 
-  it('createExceptionFilter returns a filter Nest can instantiate', () => {
+  it('createExceptionFilter returns a filter Nest can instantiate with a status map', () => {
     const { response, argumentsHost } = hostFor();
-    const Filter = createExceptionFilter(defaultEnvelopeSerializer());
+    const Filter = createExceptionFilter(defaultEnvelopeSerializer(), { PROJECT_NOT_FOUND: 404 });
 
-    new Filter().catch(new ProjectNotFound(), argumentsHost);
+    new Filter().catch(new ProjectMissing(), argumentsHost);
 
-    expect((response.body as Record<string, unknown>).errorCode).toBe('PROJECT_NOT_FOUND');
+    expect((response.body as Record<string, unknown>).statusCode).toBe(404);
   });
 });

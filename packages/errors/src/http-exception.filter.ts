@@ -1,6 +1,6 @@
 import { Catch, HttpException, Logger } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter, Type } from '@nestjs/common';
-import { ApplicationError } from './application-error.js';
+import { ApplicationError, type StatusMap } from './application-error.js';
 import { ValidationError } from './kinds.js';
 import type { EnvelopeSerializer, ErrorRequest } from './serializer.js';
 
@@ -24,24 +24,27 @@ const isZodError = (error: unknown): boolean =>
   (error as { name?: unknown }).name === 'ZodError' &&
   Array.isArray((error as { issues?: unknown }).issues);
 
-const toApplicationError = (error: unknown): ApplicationError => {
+const toApplicationError = (error: unknown, statusFor?: StatusMap): ApplicationError => {
   if (error instanceof ApplicationError) return error;
   if (error instanceof HttpException) return new HttpStatusApplicationError(error.getStatus());
   if (isZodError(error)) return new RequestValidationError();
-  return ApplicationError.fromDomain(error);
+  return ApplicationError.fromDomain(error, statusFor);
 };
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  constructor(private readonly serializer: EnvelopeSerializer) {}
+  constructor(
+    private readonly serializer: EnvelopeSerializer,
+    private readonly statusFor?: StatusMap,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     if (host.getType() !== 'http') throw exception;
 
     const context = host.switchToHttp();
-    const error = toApplicationError(exception);
+    const error = toApplicationError(exception, this.statusFor);
     if (error.statusCode >= 500) this.logger.error(exception);
 
     const request = context.getRequest<ErrorRequest>();
@@ -57,11 +60,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
   }
 }
 
-export function createExceptionFilter(serializer: EnvelopeSerializer): Type<ExceptionFilter> {
+export function createExceptionFilter(serializer: EnvelopeSerializer, statusFor?: StatusMap): Type<ExceptionFilter> {
   @Catch()
   class ConfiguredExceptionFilter extends HttpExceptionFilter {
     constructor() {
-      super(serializer);
+      super(serializer, statusFor);
     }
   }
 
