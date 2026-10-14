@@ -22,7 +22,9 @@ describe('error kinds', () => {
   it('a kind cannot be instantiated without a code', () => {
     // @ts-expect-error a kind is abstract on code; a subclass supplies its own.
     class MissingCode extends NotFoundError {}
+    const error = new MissingCode();
 
-    expect(MissingCode).toBeDefined();
+    expect(error.statusCode).toBe(404);
+    expect(error.code).toBeUndefined();
   });
 });
