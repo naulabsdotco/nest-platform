@@ -2,18 +2,42 @@ import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-const deepImport = {
-  group: ['@naulabs/*/src/*', '@naulabs/*/dist/*'],
-  message: 'Import the package root (@naulabs/<name>); deep paths are not public.',
-};
-const framework = { group: ['@nestjs/*'], message: 'A port imports no framework.' };
-const drivers = {
-  group: ['pg', 'postgres', 'mysql2', 'ioredis', 'mongodb', 'better-sqlite3'],
-  message: 'A port imports no database driver.',
-};
+// `**/src/**` catches a relative import across packages (e.g. `../../config/src/index`);
+// the two `@naulabs/*` groups catch the bare and slash forms a named deep import takes.
+export const deepImportPatterns = [
+  {
+    group: ['@naulabs/*/src', '@naulabs/*/src/*', '@naulabs/*/dist', '@naulabs/*/dist/*', '**/src/**'],
+    message: 'Import the package root (@naulabs/<name>); deep paths and raw sources are not public.',
+  },
+];
+
+export const portImportPatterns = [
+  ...deepImportPatterns,
+  { group: ['@nestjs/*'], message: 'A port imports no framework.' },
+  {
+    group: ['pg', 'postgres', 'mysql2', 'ioredis', 'mongodb', 'better-sqlite3'],
+    message: 'A port imports no database driver.',
+  },
+];
+
+// A dynamic import would let a framework or driver past the static patterns above.
+export const portSyntaxPatterns = [
+  { selector: 'ImportExpression', message: 'A port loads no module dynamically.' },
+];
+
+const restrictedImports = (patterns) => ['error', { patterns }];
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/*.d.ts', '.nx/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/*.d.ts',
+      '.nx/**',
+      '.pack-smoke/**',
+      '.build-fixture/**',
+    ],
+  },
   js.configs.recommended,
   tseslint.configs.recommended,
   {
@@ -29,14 +53,14 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
-    files: ['packages/*/src/ports/**/*.ts'],
-    rules: {
-      'no-restricted-imports': ['error', { patterns: [deepImport, framework, drivers] }],
-    },
+    files: ['packages/*/src/**/*.ts', 'packages/*/test/**/*.ts'],
+    rules: { 'no-restricted-imports': restrictedImports(deepImportPatterns) },
   },
   {
-    files: ['packages/*/src/**/*.ts', 'packages/*/test/**/*.ts'],
-    ignores: ['packages/*/src/ports/**'],
-    rules: { 'no-restricted-imports': ['error', { patterns: [deepImport] }] },
+    files: ['packages/*/src/ports/**/*.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports(portImportPatterns),
+      'no-restricted-syntax': ['error', ...portSyntaxPatterns],
+    },
   },
 );
