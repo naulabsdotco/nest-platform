@@ -15,6 +15,7 @@
     "typecheck": "nx run-many -t typecheck",
     "test": "nx run-many -t test",
     "build": "nx run-many -t build",
+    "pr-size": "node scripts/pr-size.mjs",
     "version": "changeset version",
     "release": "changeset publish"
   },

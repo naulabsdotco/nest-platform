@@ -6,9 +6,6 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["{projectRoot}/dist"]
-    },
-    "typecheck": {},
-    "test": {},
-    "lint": {}
+    }
   }
 }

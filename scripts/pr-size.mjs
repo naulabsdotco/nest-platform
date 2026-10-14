@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const TARGET = 200;
 export const HARD_CAP = 500;
 
-const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json', 'npm-shrinkwrap.json'];
+const LOCKFILES = new Set(['pnpm-lock.yaml', 'package-lock.json', 'npm-shrinkwrap.json']);
 
 export function countChangedLines(numstat) {
   let total = 0;
   for (const line of numstat.split('\n')) {
     const [added, deleted, file] = line.trim().split('\t');
     if (!file) continue;
-    if (LOCKFILES.some((name) => file.endsWith(name))) continue;
+    if (LOCKFILES.has(basename(file))) continue;
     if (added === '-' || deleted === '-') continue;
     total += Number(added) + Number(deleted);
   }

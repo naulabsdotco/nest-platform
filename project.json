@@ -4,7 +4,7 @@
   "root": ".",
   "targets": {
     "lint": {
-      "command": "eslint ."
+      "command": "eslint scripts tools eslint.config.mjs vitest.config.ts"
     },
     "typecheck": {
       "command": "tsc --noEmit -p tsconfig.json"
