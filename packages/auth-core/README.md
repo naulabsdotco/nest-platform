@@ -50,4 +50,14 @@ failure. Rotating `activeKid` keeps old tokens verifying while the key map still
 matched exactly and `aud` may be a string or an array containing the configured audience. An access
 token cannot be revoked, so keep its TTL short and pair it with the refresh flow.
 
+## Route metadata
+
+`Public()`, `Authenticated()` and `RequirePermission(id)` attach the three keys the guards read;
+`RequirePermission` refuses an empty id. `resolveRoutePolicy(reflector, handler, controller)` returns
+the effective policy, the handler replacing its class wholesale, so a class-level `@Public` never
+relaxes a handler that asks for more — a mix `assertEveryRouteGuarded(app)` refuses. That helper walks
+every controller route, inherited ones included, and throws `MissingRouteGuardError` listing each route
+that carries none of the keys: default-deny made checkable by a consumer's own test.
+
+
 
