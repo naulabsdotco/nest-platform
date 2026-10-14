@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { PACKAGES, checkExports, readPackageJson } from './export-conditions.mjs';
+import { PACKAGES, checkExports, readPackageJson, typeMismatches } from './export-conditions.mjs';
 
 const root = process.cwd();
 const packageDir = (name: string): string => join(root, 'packages', name);
@@ -28,15 +28,19 @@ describe('package export conditions', () => {
     }
   });
 
-  it('exposes the same non-empty surface from the ESM and CJS builds', async () => {
+  it('exposes the same non-empty surface with matching export types', async () => {
     for (const name of PACKAGES) {
       const esm = await import(/* @vite-ignore */ `@naulabs/${name}`);
       const cjs = load(`@naulabs/${name}`);
 
       expect(Object.keys(esm).length).toBeGreaterThan(0);
       expect(Object.keys(cjs).sort()).toEqual(Object.keys(esm).sort());
-      expect(esm.packageName).toBe(`@naulabs/${name}`);
+      expect(typeMismatches(esm, cjs)).toEqual([]);
     }
+  });
+
+  it('flags an export whose type differs between the builds', () => {
+    expect(typeMismatches({ name: 'x', count: 1 }, { name: 'x', count: '1' })).toEqual(['count: number vs string']);
   });
 
   it('fails a package without a dist fallback', () => {
