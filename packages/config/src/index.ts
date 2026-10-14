@@ -1,1 +1,2 @@
-export const packageName = "@naulabs/config";
+export { ConfigValidationError } from './errors';
+export { loadEnv, type EnvReader } from './load-env';
