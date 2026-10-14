@@ -43,6 +43,12 @@ a bare `new Error(...)` from a guard or adapter.
 - **One concern per commit.** Conventional Commits title, imperative, under ~72 characters. Branch
   per ticket, never commit to `main` directly.
 
+## Packaging
+
+Each package ships **dual ESM + CJS**. `exports` carries `import`, `require` and the `@naulabs/source`
+dev condition, each with a `dist` fallback; the build emits both formats plus declaration files and
+source maps. `pack-smoke` must `require()` **and** `import` every packed tarball.
+
 ## Code budget
 
 Prefer a dependency over a hand-rolled abstraction: Nest built-ins, `passport-jwt`, `argon2`,
@@ -62,6 +68,7 @@ rejected alternative. Tiebreak is delete.
   subject on success. The password policy is checked before any state change.
 - Compare secrets timing-safe. `DEFAULT_REDACT_PATHS` covers credentials, tokens and SQL parameters;
   a consumer may add paths but never empty the list.
+- The re-authentication code is `AUTH_REAUTH_FAILED`; no vendor-style naming anywhere.
 
 ## SQL and migrations
 

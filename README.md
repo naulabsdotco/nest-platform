@@ -15,6 +15,9 @@ port or a serializer, never compiled in.
 | `@naulabs/errors` | Domain/application error taxonomy, `ApplicationError.fromDomain`, and an HTTP exception filter with a pluggable envelope serializer. |
 | `@naulabs/auth-core` | A pinned JWT strategy factory, an argon2id password verifier, an access-token service, refresh rotation with reuse detection, a single-use hashed reset token, `AuthStore`/`ScopeResolver`/`PermissionCatalogue` ports, and guards (`JwtAuth → Scope → Permission`) that default to deny. |
 
+Each package ships dual ESM + CJS — `exports` carries `import`, `require` and a `@naulabs/source` dev
+condition — so both `import` and `require` consumers resolve the same surface.
+
 ## Status
 
 Pre-release. The repository is bootstrapped and the work is planned as tickets; there is no package

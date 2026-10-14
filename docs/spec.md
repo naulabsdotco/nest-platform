@@ -13,12 +13,10 @@ loading, logging, an error taxonomy, and authentication primitives — as a smal
 package set. Build the mechanism once; let a consumer own every decision specific to it. Exactly four
 packages; anything else stays in the consumer until a third real consumer proves the rule of three.
 
-**The single most important property:** a package carries mechanism only. Every consumer-specific
-decision — who the subject is, what a scope means, what a role may do, what an error is called, what an
-error response looks like — is injected through a port or a serializer, never compiled in.
+**Most important property:** a package carries mechanism only — every consumer decision is injected through a port or a serializer, never compiled in.
 ## 2. Package contract (public surface)
 
-Only `src/index.ts` is exported. Anything not in the contract is private and may change in a patch.
+Only `src/index.ts` is exported; anything else may change in a patch. Each package ships **dual ESM + CJS**: `exports` carries `import`, `require` and the `@naulabs/source` dev condition, each with a `dist` fallback; the build emits both formats plus declarations and source maps.
 ### `@naulabs/config`
 
 ```ts
@@ -88,9 +86,9 @@ const ARGON2_OPTIONS: Readonly<{ type: 'argon2id'; memoryCost: 19456; timeCost: 
 function createPasswordVerifier(opts?: { bcrypt?: boolean }): PasswordVerifier;   // bcrypt off by default
 interface TokenService { issueAccess(sub: string): { accessToken: string; expiresIn: number } }
 function createTokenService(cfg: TokenConfig): TokenService;                       // pinned iss/aud/kid, alg HS256, { sub, typ: 'access' } only
-class AuthService { /* login / refresh / logout over AuthStore */ }
+class AuthService { /* login / refresh / logout; login returns tokens plus the resolved scope */ }
 interface ResetLinkSink { send(input: { email: string; token: string }): Promise<void> }
-// guards and decorators — route metadata lives here, not in the consumer
+// guards and decorators — route metadata lives here; the consumer registers the guards
 const PUBLIC_KEY, AUTHENTICATED_KEY, PERMISSION_KEY: string;
 function Public(): MethodDecorator & ClassDecorator;
 function Authenticated(): MethodDecorator & ClassDecorator;
@@ -101,9 +99,9 @@ class ScopeGuard implements CanActivate {}                                      
 class PermissionGuard implements CanActivate {}                                    // uses PermissionCatalogue; default deny
 function assertEveryRouteGuarded(app: INestApplication): void;                     // reflection guard for the consumer's test
 // module, SQL and codes
-class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule }
+class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule }       // provides services, strategy and guards
 function emitAuthSql(opts: { destDir: string; utc14: string }): Promise<readonly string[]>;
-const AUTH_ERROR_CODES: { readonly [k: string]: string };
+const AUTH_ERROR_CODES: { readonly [k: string]: string };                           // includes AUTH_REAUTH_FAILED
 ```
 
 **Ownership fence.** Decorators and metadata keys live here, because the guards read them. The
@@ -115,7 +113,7 @@ serializer, its `AuthStore`/`ScopeResolver`/`PermissionCatalogue` adapters and i
 pnpm install
 pnpm exec nx run-many -t lint typecheck test build      # all four packages
 pnpm exec nx test auth-core                             # one package
-node scripts/pack-smoke.mjs                             # import from packed tarballs
+node scripts/pack-smoke.mjs                             # import and require each packed tarball
 pnpm exec changeset                                     # author a changeset
 pnpm exec changeset version                             # apply bumps and changelogs
 pnpm exec changeset publish --tag latest                # publish to public npm
@@ -125,13 +123,10 @@ pnpm exec changeset publish --tag latest                # publish to public npm
 ```
 package.json  pnpm-workspace.yaml  nx.json  tsconfig.base.json  eslint.config.mjs  .npmrc
 .changeset/                  changesets config and pending changeset files
-packages/config/             @naulabs/config
-packages/logging/            @naulabs/logging
-packages/errors/             @naulabs/errors
-packages/auth-core/          @naulabs/auth-core
-  src/{index.ts,module.ts,errors.ts,config.ts}   src/{ports,crypto,tokens,guards}/
-  sql/                       versioned reference SQL — never executed here
-  bin/emit-auth-sql.mjs      copies sql/* into a consumer migration directory
+packages/{config,logging,errors,auth-core}/   one package per folder, @naulabs/<name>
+packages/auth-core/  src/{index.ts,module.ts,errors.ts,config.ts}  src/{ports,crypto,tokens,guards}/
+                      sql/  versioned reference SQL — never executed here
+                      bin/emit-auth-sql.mjs   copies sql/* into a consumer migration directory
 .github/workflows/{ci,release}.yml     docs/spec.md  README.md  CLAUDE.md  AGENTS.md  LICENSE
 ```
 
@@ -139,51 +134,47 @@ Layering is enforced by folder-scoped ESLint: `ports/**` imports no Nest and no 
 outside a package's `src/index.ts` fails.
 ## 5. Code style
 
-- Public surface is a contract; deep imports are a review failure. No consumer nouns in an export;
-  `subject`, `scope`, `role`, `permission` are the vocabulary. Named errors, one per failure mode, no
-  bare `new Error(...)`.
-- Fail closed: a missing config key fails boot; an unannotated route is denied; an unknown scheme is
-  refused; a reused refresh token revokes the family.
-- Prefer a dependency over a hand-rolled abstraction; a new abstraction states why it could not be
-  one. Comments explain why, never what.
+Public surface is a contract; deep imports are a review failure. No consumer nouns in an export —
+`subject`, `scope`, `role`, `permission` are the vocabulary — and named errors, one per failure mode, no
+bare `new Error(...)`. Fail closed: a missing config key fails boot, an unannotated route is denied, an
+unknown scheme is refused, a reused refresh token revokes the family. Prefer a dependency over a
+hand-rolled abstraction; a new abstraction states why it could not be one. Comments explain why, never
+what.
 ## 6. Testing strategy
 
 - **Unit** (nothing): env parse/fail-boot; redaction; envelope serialization; `fromDomain`; guard order;
-  `@Public`; default-deny; `{ sub, typ }`-only token; alg/iss/aud rejection; argon2id round-trip;
-  bcrypt refusal when off; refresh reuse inside/outside grace; reset single-use.
-- **Contract** (nothing): the export condition resolves for every package; only `src/index.ts` is public.
+  `@Public`; default-deny; `{ sub, typ }`-only token; alg/iss/aud rejection; argon2id round-trip; bcrypt
+  refusal when off; refresh reuse inside/outside grace; reset single-use.
+- **Contract** (nothing): the `import`, `require` and `source` conditions resolve for every package; only
+  `src/index.ts` is public; the ESM and CJS builds expose the same surface.
 - **Integration** (its own container): the reference SQL applies cleanly to a throwaway `postgres:17`;
   `emitAuthSql` writes the expected files.
-- **Consumer smoke** (its own container): a fixture app imports the four packages from their packed
-  tarballs and boots.
+- **Consumer smoke** (its own container): a fixture app `require()`s and `import`s each packed tarball
+  and boots; the matrix pins the consumer majors.
 
-**Real Postgres, never a mocked driver** — for the SQL-apply test only. The package never runs
-migrations; it proves its SQL parses and applies.
+**Real Postgres, never a mocked driver** — for the SQL-apply test only; the package never runs
+migrations, it proves its SQL parses and applies.
 ## 7. Boundaries
 
-**Always** — pin `algorithms`, `issuer`, `audience`, `ignoreExpiration` in the strategy factory as
-required options; argon2id for passwords and SHA-256 for anything with ≥256 bits of entropy; compare
-secrets timing-safe; ship authentication tables as versioned SQL plus an emit helper, with the
-consumer owning the migration; semver + changesets with exact consumer pins; take the consumer seams
-(`AuthStore`, `ScopeResolver`, `PermissionCatalogue`, the error-code map, the envelope serializer, the
-`Clock`, the `PasswordPolicy`) as inputs.
-
-**Ask first** — adding a fifth package; a breaking public export or a major bump; enabling the bcrypt
-provider by default anywhere; any change the security review flags.
-
-**Never** — compile consumer specifics into a package (the scope model, roles/permissions, claims
-beyond `{ sub, typ }`, error codes, envelope shape, mailer/storage/outbox/rate-limit/metrics); a
-package that runs a migration or connects with an elevated role; a second password scheme on by
-default; a JWT reset token; a scope claim in a token; logging a credential, a token, a raw SQL
-parameter or a reset token; a consumer that reaches a deep import path.
+**Always** — pin `algorithms`, `issuer`, `audience`, `ignoreExpiration` as required strategy options;
+argon2id for passwords, SHA-256 for ≥256-bit secrets, timing-safe compares; ship authentication tables as
+versioned SQL plus an emit helper, with the consumer owning the migration; semver + changesets with exact
+pins; take the consumer seams (`AuthStore`, `ScopeResolver`, `PermissionCatalogue`, the code map, the
+envelope serializer, `Clock`, `PasswordPolicy`) as inputs.
+**Ask first** — a fifth package; a breaking export or major bump; enabling bcrypt by default; any change
+the security review flags.
+**Never** — compile consumer specifics into a package (the scope model, roles/permissions, claims beyond
+`{ sub, typ }`, error codes, envelope shape, mailer/storage/outbox/rate-limit/metrics); a package that
+runs a migration or connects with an elevated role; a second password scheme on by default; a JWT reset
+token; a scope claim in a token; logging a credential, a token, a raw SQL parameter or a reset token; a
+deep import path.
 ## 8. Versioning, release and smoke
 
 The four packages share one version (one changesets `fixed` group) so a partial upgrade cannot happen;
-consumers pin exact versions. Publishing targets public npm with provenance; two manual, human-owned
-steps gate the first publish — the `@naulabs` npm organisation must exist, and an `NPM_TOKEN`
-repository secret must be set. CI packs the four packages and installs the tarballs into a small
-fixture app that boots, so a missing `dist` file, a missing export condition or a stripped import
-fails CI rather than a consumer.
+consumers pin exact versions. Publishing targets public npm with provenance; the `@naulabs` npm
+organisation and an `NPM_TOKEN` repository secret are human-owned prerequisites for the first publish. CI
+packs the four packages and installs the tarballs into a small fixture app that boots, so a missing
+`dist` file, a missing export condition or a stripped import fails CI rather than a consumer.
 ## 9. Success criteria
 
 - `pnpm exec nx run-many -t lint typecheck test build` is green; `pack-smoke` is green.
@@ -192,8 +183,17 @@ fails CI rather than a consumer.
 - A grep for a consumer product or domain noun across every public export is empty.
 - `emitAuthSql` writes `<utc14>_<name>.sql` into a consumer directory and refuses to overwrite.
 - `auth-core` passes the security review before any publish.
-## 10. Open decisions
+## 10. Decisions (resolved)
 
-- Registry scope confirmation (`@naulabs`) and repository name — set by the user, not inferred.
-- Whether the tooling baseline is Nx or plain pnpm workspaces; this spec assumes Nx.
-- ESM-only versus dual emit, and the custom export condition name.
+- **Tooling/format:** pnpm + Nx; dual ESM + CJS (`import` + `require` + `@naulabs/source` conditions);
+  declaration files and source maps emitted. Public MIT, scope `@naulabs`, repo
+  `naulabsdotco/nest-platform`.
+- **Reference SQL:** ships `subject`, `subject_credential`, `refresh_token`, `password_reset_token`,
+  `login_attempt` only (a scope/membership table does not ship here); `email` is `citext`; `login_attempt`
+  is not partitioned.
+- **Codes:** scope selection is `AUTH_SCOPE_SELECTION_REQUIRED` (400); re-auth is `AUTH_REAUTH_FAILED`;
+  no vendor-style naming anywhere.
+- **Guards:** `forRoot` provides them; the consumer registers them ordered `JwtAuth → Scope → Permission`.
+- **Tests:** Vitest; SQL-apply uses testcontainers; `login` returns tokens plus the resolved scope; the
+  consumer contract stays in-repo. A human creates the `@naulabs` npm org and sets `NPM_TOKEN` before
+  the first publish.
