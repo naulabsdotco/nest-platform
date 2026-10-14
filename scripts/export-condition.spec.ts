@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -7,33 +7,35 @@ import { PACKAGES, checkExports, readPackageJson } from './export-conditions.mjs
 const root = process.cwd();
 const packageDir = (name: string): string => join(root, 'packages', name);
 const load = createRequire(import.meta.url);
+const resolveWith = (name: string): string =>
+  execFileSync('node', ['--conditions=@naulabs/source', '-p', `require.resolve('@naulabs/${name}')`], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim();
 
 describe('package export conditions', () => {
   it('resolves through the @naulabs/source condition in dev', () => {
     for (const name of PACKAGES) {
-      const pkg = readPackageJson(packageDir(name));
-
-      expect(pkg.exports['.']['@naulabs/source']).toBe('./src/index.ts');
-      expect(existsSync(join(packageDir(name), 'src/index.ts'))).toBe(true);
+      expect(resolveWith(name)).toBe(join(packageDir(name), 'src/index.ts'));
     }
   });
 
   it('resolves through both the import and require conditions after a build', () => {
     for (const name of PACKAGES) {
-      const { exports } = readPackageJson(packageDir(name));
+      const pkg = readPackageJson(packageDir(name));
 
-      expect(existsSync(join(packageDir(name), exports['.'].import.default))).toBe(true);
-      expect(existsSync(join(packageDir(name), exports['.'].require.default))).toBe(true);
-      expect(checkExports(name, { exports })).toEqual([]);
+      expect(checkExports(name, pkg, packageDir(name))).toEqual([]);
     }
   });
 
-  it('exposes the same export names from the ESM and CJS builds', async () => {
+  it('exposes the same non-empty surface from the ESM and CJS builds', async () => {
     for (const name of PACKAGES) {
       const esm = await import(/* @vite-ignore */ `@naulabs/${name}`);
       const cjs = load(`@naulabs/${name}`);
 
+      expect(Object.keys(esm).length).toBeGreaterThan(0);
       expect(Object.keys(cjs).sort()).toEqual(Object.keys(esm).sort());
+      expect(esm.packageName).toBe(`@naulabs/${name}`);
     }
   });
 
@@ -47,6 +49,6 @@ describe('package export conditions', () => {
       },
     };
 
-    expect(checkExports('broken', broken)).not.toEqual([]);
+    expect(checkExports('broken', broken, packageDir('config'))).not.toEqual([]);
   });
 });
