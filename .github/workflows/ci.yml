@@ -29,3 +29,4 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node scripts/pr-size.mjs origin/${{ github.base_ref }}
       - run: pnpm exec nx run-many -t lint typecheck test build
+      - run: node scripts/pack-smoke.mjs
