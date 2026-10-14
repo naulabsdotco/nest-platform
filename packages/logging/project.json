@@ -8,6 +8,6 @@
     "build": { "command": "node tools/build.mjs {projectRoot}" },
     "lint": { "command": "eslint {projectRoot}" },
     "typecheck": { "command": "tsc --noEmit -p {projectRoot}/tsconfig.lib.json" },
-    "test": { "command": "vitest run --root {projectRoot} --passWithNoTests" }
+    "test": { "command": "vitest run --root {projectRoot}" }
   }
 }
