@@ -26,6 +26,27 @@ describe('resolveRedactPaths', () => {
     expect(line).not.toContain('raw-credential');
   });
 
+  it('redacts common credential keys and headers', () => {
+    const line = lineFor(DEFAULT_REDACT_PATHS, {
+      apiKey: 'raw-api-key',
+      secret: 'raw-secret',
+      req: { headers: { 'x-api-key': 'raw-header-key' } },
+    });
+
+    expect(line).not.toContain('raw-api-key');
+    expect(line).not.toContain('raw-secret');
+    expect(line).not.toContain('raw-header-key');
+  });
+
+  it('redacts a credential nested two levels deep', () => {
+    const line = lineFor(DEFAULT_REDACT_PATHS, {
+      user: { account: { password: 'deep-secret', token: 'deep-token' } },
+    });
+
+    expect(line).not.toContain('deep-secret');
+    expect(line).not.toContain('deep-token');
+  });
+
   it('redacts an extra path in addition to the defaults', () => {
     const line = lineFor(resolveRedactPaths(['subjectEmail']), {
       password: 'hunter2',

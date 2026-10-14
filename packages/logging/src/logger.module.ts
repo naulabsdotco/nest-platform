@@ -1,10 +1,6 @@
 import type { DynamicModule } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
-import {
-  CORRELATION_HEADER,
-  type CorrelationRequest,
-  correlationIdOf,
-} from './correlation.middleware.js';
+import { CORRELATION_HEADER, type CorrelationRequest, correlationIdOf } from './correlation.middleware.js';
 import { resolveRedactPaths } from './redact.js';
 
 // The field names every line carries; a consumer adds context fields, never renames these.
@@ -28,20 +24,21 @@ function contextProps(source: Record<string, unknown>, contextFields: readonly s
   return props;
 }
 
-export function loggerOptions(opts: LoggerOptions) {
+export function createLoggerModule(opts: LoggerOptions): DynamicModule {
   const header = opts.correlationHeader ?? CORRELATION_HEADER;
   const contextFields = opts.contextFields ?? [];
-  return {
-    level: opts.level ?? 'info',
-    base: { service: opts.service },
-    redact: { paths: resolveRedactPaths(opts.redactExtra), censor: '[Redacted]' },
-    genReqId: (req: CorrelationRequest) => correlationIdOf(req, header),
-    customAttributeKeys: { reqId: 'correlationId' },
-    customProps: (req: CorrelationRequest) =>
-      contextProps(req as unknown as Record<string, unknown>, contextFields),
-  };
-}
-
-export function createLoggerModule(opts: LoggerOptions): DynamicModule {
-  return LoggerModule.forRoot({ pinoHttp: loggerOptions(opts) });
+  return LoggerModule.forRoot({
+    pinoHttp: {
+      level: opts.level ?? 'info',
+      base: { service: opts.service },
+      redact: { paths: resolveRedactPaths(opts.redactExtra), censor: '[Redacted]' },
+      genReqId: (req: CorrelationRequest) => correlationIdOf(req, header),
+      // correlationId is bound here rather than named with customAttributeKeys, which
+      // pino-http ignores unless quietReqLogger drops the request object from the line.
+      customProps: (req: CorrelationRequest) => ({
+        correlationId: String(req.id),
+        ...contextProps(req as unknown as Record<string, unknown>, contextFields),
+      }),
+    },
+  });
 }

@@ -2,13 +2,12 @@ import { randomUUID } from 'node:crypto';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
-export interface CorrelationLogger {
-  child(bindings: Record<string, unknown>): CorrelationLogger;
-}
+// An inbound id is echoed and bound, so trust only a bounded, printable token.
+const CORRELATION_ID_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/;
 
 export interface CorrelationRequest {
   headers: Record<string, string | string[] | undefined>;
-  log?: CorrelationLogger;
+  id?: string;
 }
 
 export interface CorrelationResponse {
@@ -21,20 +20,20 @@ export type RequestHandler = (
   next: () => void,
 ) => void;
 
+// Reads the inbound id or mints one, and writes it back so a later reader sees the same value.
 export function correlationIdOf(req: CorrelationRequest, header: string): string {
-  const inbound = req.headers[header];
-  const value = Array.isArray(inbound) ? inbound[0] : inbound;
-  return value ? value : randomUUID();
+  const key = header.toLowerCase();
+  const inbound = req.headers[key];
+  const candidate = Array.isArray(inbound) ? inbound[0] : inbound;
+  const correlationId = candidate && CORRELATION_ID_PATTERN.test(candidate) ? candidate : randomUUID();
+  req.headers[key] = correlationId;
+  return correlationId;
 }
 
 export function correlationMiddleware(opts: { header?: string } = {}): RequestHandler {
   const header = opts.header ?? CORRELATION_HEADER;
   return (req, res, next) => {
-    const correlationId = correlationIdOf(req, header);
-    req.headers[header] = correlationId;
-    res.setHeader(header, correlationId);
-    // pino-http may already have bound a child; rebind it so the id reaches every line.
-    if (req.log) req.log = req.log.child({ correlationId });
+    res.setHeader(header, correlationIdOf(req, header));
     next();
   };
 }

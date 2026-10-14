@@ -2,9 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CORRELATION_HEADER,
   correlationMiddleware,
-  type CorrelationLogger,
   type CorrelationRequest,
-  type CorrelationResponse,
 } from './correlation.middleware.js';
 
 const request = (headers: CorrelationRequest['headers'] = {}): CorrelationRequest => ({ headers });
@@ -57,14 +55,24 @@ describe('correlationMiddleware', () => {
     expect(ids).not.toContain('client-controlled');
   });
 
-  it('binds the id onto an existing pino child logger', () => {
-    const logger: CorrelationLogger = { child: vi.fn(() => logger) };
+  it('replaces an inbound id that is too long or carries illegal bytes', () => {
+    for (const inbound of ['x'.repeat(200), 'has space\nnewline', 'é']) {
+      const req = request({ [CORRELATION_HEADER]: inbound });
+      const res = response();
+
+      correlationMiddleware()(req, res, () => {});
+
+      expect(idFrom(res)).toMatch(UUID_V4);
+      expect(req.headers[CORRELATION_HEADER]).toBe(idFrom(res));
+    }
+  });
+
+  it('matches the configured header name case-insensitively', () => {
     const req = request({ [CORRELATION_HEADER]: 'inbound-id' });
-    const res: CorrelationResponse = response();
-    req.log = logger;
+    const res = response();
 
-    correlationMiddleware()(req, res, () => {});
+    correlationMiddleware({ header: 'X-Correlation-Id' })(req, res, () => {});
 
-    expect(logger.child).toHaveBeenCalledWith({ correlationId: 'inbound-id' });
+    expect(idFrom(res)).toBe('inbound-id');
   });
 });

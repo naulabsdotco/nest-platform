@@ -42,13 +42,16 @@ call site; `correlationId` comes from the middleware.
 ## Context fields
 
 A consumer adds its own neutral fields through `contextFields`. Each named field is read
-off the request, so a guard can set it and every line picks it up:
+off the request when it enters, so set it in an earlier middleware:
 
 ```ts
+app.use(setTenantContext);
+// ...
 createLoggerModule({ service: 'example-app', contextFields: ['tenantId', 'role'] });
 ```
 
-`contextFields` may not shadow a reserved name; a collision is ignored.
+A value discovered later — in a guard, say — is bound at log time with `PinoLogger.assign`
+instead. `contextFields` may not shadow a reserved name; a collision is ignored.
 
 ## Redaction
 
