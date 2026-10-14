@@ -20,6 +20,8 @@ export async function buildPackage(dir) {
       sourcemap: true,
       clean: true,
       silent: true,
+      // A node_modules dependency stays external; bundling one can pull in its optional peers.
+      skipNodeModulesBundle: true,
       tsconfig: join(dir, 'tsconfig.json'),
       // tsup would name the CJS entry index.cjs; the exports map points require at index.js,
       // and dist/cjs/package.json marks the folder CommonJS.
