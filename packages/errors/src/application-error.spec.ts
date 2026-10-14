@@ -15,6 +15,7 @@ describe('ApplicationError.fromDomain', () => {
     expect(translated).toBeInstanceOf(ApplicationError);
     expect(translated.code).toBe('SAMPLE_FAILED');
     expect(translated.criteria).toBe(criteria);
+    expect(translated.statusCode).toBe(500);
   });
 
   it('a subclass supplies its own code and status', () => {
@@ -58,5 +59,14 @@ describe('ApplicationError.fromDomain', () => {
     const translated = ApplicationError.fromDomain(new SampleDomainError(criteria));
 
     expect(translated.criteria).toBe(criteria);
+  });
+
+  it('the original error is retained as a non-enumerable cause', () => {
+    const original = new Error('connection string postgres://user:secret@host');
+
+    const translated = ApplicationError.fromDomain(original);
+
+    expect(translated.cause).toBe(original);
+    expect(Object.keys(translated)).not.toContain('cause');
   });
 });

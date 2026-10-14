@@ -11,13 +11,17 @@ export abstract class ApplicationError extends Error {
   }
 
   static fromDomain(error: unknown): ApplicationError {
-    if (error instanceof DomainError) {
-      return new DomainApplicationError(error.code, error.criteria);
-    }
-    return new InternalApplicationError();
+    const translated =
+      error instanceof DomainError
+        ? new DomainApplicationError(error.code, error.criteria)
+        : new InternalApplicationError();
+    Object.defineProperty(translated, 'cause', { value: error });
+    return translated;
   }
 }
 
+// fromDomain returns an InfrastructureError, so it lives beside fromDomain; importing it
+// from kinds.ts would make the two modules extend each other before either is initialised.
 export abstract class InfrastructureError extends ApplicationError {}
 
 class InternalApplicationError extends InfrastructureError {
