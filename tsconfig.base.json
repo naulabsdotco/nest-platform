@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "customConditions": ["@naulabs/source"],
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "baseUrl": ".",
+    "paths": {
+      "@naulabs/config": ["packages/config/src/index.ts"],
+      "@naulabs/logging": ["packages/logging/src/index.ts"],
+      "@naulabs/errors": ["packages/errors/src/index.ts"],
+      "@naulabs/auth-core": ["packages/auth-core/src/index.ts"]
+    }
+  }
+}
