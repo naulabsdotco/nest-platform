@@ -26,7 +26,9 @@ class ExampleModule implements NestModule {
 
 `createLoggerModule` provides the pino logger through DI; `nestjs-pino` exposes a
 request-scoped child whose every line carries `correlationId`. `correlationMiddleware`
-reads the inbound `x-correlation-id` (or generates one) and echoes it on the response.
+reads the inbound `x-correlation-id`, accepting it only when it is a canonical UUID
+(case-insensitive, pinned to lowercase); any other value is replaced with a fresh UUID,
+and the accepted or generated id is echoed on the response header.
 
 ## The field contract
 

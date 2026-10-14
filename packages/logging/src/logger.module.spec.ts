@@ -36,8 +36,9 @@ describe('createLoggerModule', () => {
 
     expect(module.module).toBe(LoggerModule);
     expect(module.exports).toContain(Logger);
-    expect(lineFor({ service: 'example-app' }, { headers: { 'x-correlation-id': 'inbound-id' } }).correlationId).toBe(
-      'inbound-id',
+    const inbound = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+    expect(lineFor({ service: 'example-app' }, { headers: { 'x-correlation-id': inbound } }).correlationId).toBe(
+      inbound,
     );
   });
 
