@@ -1,6 +1,6 @@
 import pino from 'pino';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_REDACT_PATHS, resolveRedactPaths } from './redact.js';
+import { DEFAULT_REDACT_PATHS, resolveRedactPaths } from './redact';
 
 const lineFor = (paths: readonly string[], record: Record<string, unknown>): string => {
   const lines: string[] = [];

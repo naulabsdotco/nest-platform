@@ -25,6 +25,15 @@ export const portSyntaxPatterns = [
   { selector: 'ImportExpression', message: 'A port loads no module dynamically.' },
 ];
 
+// `moduleResolution: bundler` resolves a relative import without one; an extension couples the
+// specifier to the file layout, and the tsup bundle inlines relative imports anyway.
+export const extensionPatterns = [
+  {
+    group: ['./**/*.js', './**/*.ts', '../**/*.js', '../**/*.ts'],
+    message: 'Drop the extension from a relative import; the bundler resolves it.',
+  },
+];
+
 const restrictedImports = (patterns) => ['error', { patterns }];
 
 export default tseslint.config(
@@ -46,7 +55,10 @@ export default tseslint.config(
       globals: globals.node,
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
-    rules: { '@typescript-eslint/no-floating-promises': 'error' },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      'no-restricted-imports': restrictedImports(extensionPatterns),
+    },
   },
   {
     files: ['**/*.{js,mjs,cjs}'],
@@ -54,12 +66,12 @@ export default tseslint.config(
   },
   {
     files: ['packages/*/src/**/*.ts', 'packages/*/test/**/*.ts'],
-    rules: { 'no-restricted-imports': restrictedImports(deepImportPatterns) },
+    rules: { 'no-restricted-imports': restrictedImports([...deepImportPatterns, ...extensionPatterns]) },
   },
   {
     files: ['packages/*/src/ports/**/*.ts'],
     rules: {
-      'no-restricted-imports': restrictedImports(portImportPatterns),
+      'no-restricted-imports': restrictedImports([...portImportPatterns, ...extensionPatterns]),
       'no-restricted-syntax': ['error', ...portSyntaxPatterns],
     },
   },

@@ -2,8 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Logger, LoggerModule, PARAMS_PROVIDER_TOKEN, type Params } from 'nestjs-pino';
 import pinoHttp, { type Options } from 'pino-http';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_REDACT_PATHS } from './redact.js';
-import { LOG_FIELDS, createLoggerModule, type LoggerOptions } from './logger.module.js';
+import { DEFAULT_REDACT_PATHS } from './redact';
+import { LOG_FIELDS, createLoggerModule, type LoggerOptions } from './logger.module';
 
 const paramsOf = (opts: LoggerOptions): Params => {
   const providers = (createLoggerModule(opts).providers ?? []) as Array<{

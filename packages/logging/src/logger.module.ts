@@ -1,7 +1,7 @@
 import type { DynamicModule } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
-import { CORRELATION_HEADER, type CorrelationRequest, correlationIdOf } from './correlation.middleware.js';
-import { resolveRedactPaths } from './redact.js';
+import { CORRELATION_HEADER, type CorrelationRequest, correlationIdOf } from './correlation.middleware';
+import { resolveRedactPaths } from './redact';
 
 // The field names every line carries; a consumer adds context fields, never renames these.
 export const LOG_FIELDS = ['event', 'correlationId', 'outcome'] as const;

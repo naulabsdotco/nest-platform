@@ -2,11 +2,11 @@ import { Logger, NotFoundException } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ZodError } from 'zod';
-import { ApplicationError, InfrastructureError, type StatusMap } from './application-error.js';
-import { DomainError } from './domain-error.js';
-import { HttpExceptionFilter, createExceptionFilter } from './http-exception.filter.js';
-import { NotFoundError } from './kinds.js';
-import { defaultEnvelopeSerializer, type EnvelopeSerializer, type ErrorRequest } from './serializer.js';
+import { ApplicationError, InfrastructureError, type StatusMap } from './application-error';
+import { DomainError } from './domain-error';
+import { HttpExceptionFilter, createExceptionFilter } from './http-exception.filter';
+import { NotFoundError } from './kinds';
+import { defaultEnvelopeSerializer, type EnvelopeSerializer, type ErrorRequest } from './serializer';
 
 class ProjectNotFound extends NotFoundError {
   readonly code = 'PROJECT_NOT_FOUND';

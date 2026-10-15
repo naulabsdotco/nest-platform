@@ -1,4 +1,4 @@
-import { ApplicationError } from './application-error.js';
+import { ApplicationError } from './application-error';
 
 export abstract class ValidationError extends ApplicationError {
   readonly statusCode = 400;

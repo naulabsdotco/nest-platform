@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ApplicationError, InfrastructureError, type StatusMap } from './application-error.js';
-import { DomainError } from './domain-error.js';
+import { ApplicationError, InfrastructureError, type StatusMap } from './application-error';
+import { DomainError } from './domain-error';
 
 class SampleDomainError extends DomainError {
   readonly code = 'SAMPLE_FAILED';

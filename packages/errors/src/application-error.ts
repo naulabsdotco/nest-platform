@@ -1,4 +1,4 @@
-import { DomainError } from './domain-error.js';
+import { DomainError } from './domain-error';
 
 export type StatusMap<C extends string = string> = Partial<Record<C, number>>;
 

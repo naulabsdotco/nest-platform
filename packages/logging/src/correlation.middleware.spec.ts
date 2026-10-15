@@ -3,7 +3,7 @@ import {
   CORRELATION_HEADER,
   correlationMiddleware,
   type CorrelationRequest,
-} from './correlation.middleware.js';
+} from './correlation.middleware';
 
 const request = (headers: CorrelationRequest['headers'] = {}): CorrelationRequest => ({ headers });
 
