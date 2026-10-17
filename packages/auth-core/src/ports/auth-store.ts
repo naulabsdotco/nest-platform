@@ -59,11 +59,11 @@ export interface AuthStore {
   replaceCredentialHash(subjectId: string, hash: string): Promise<void>;
   issueRefresh(input: RefreshInput): Promise<RefreshRecord>;
   findRefreshByHash(tokenHash: string): Promise<RefreshRecord | null>;
-  markRefreshUsed(id: string): Promise<void>;
+  markRefreshUsed(id: string): Promise<boolean>;
   revokeRefreshFamily(familyId: string): Promise<void>;
   revokeRefreshForSubjects(subjectIds: readonly string[]): Promise<void>;
   issueResetToken(input: ResetInput): Promise<ResetRecord>;
   findResetToken(tokenHash: string): Promise<ResetRecord | null>;
-  consumeResetToken(id: string): Promise<void>;
+  consumeResetToken(id: string): Promise<boolean>;
   recordLoginAttempt(attempt: LoginAttempt): Promise<void>;
 }

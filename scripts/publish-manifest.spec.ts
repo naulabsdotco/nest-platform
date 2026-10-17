@@ -14,6 +14,15 @@ const devManifest = {
   },
 };
 
+const workspaceManifest = {
+  name: '@naulabs/auth-core',
+  version: '0.0.0',
+  files: ['dist', 'src'],
+  dependencies: { '@naulabs/errors': 'workspace:*', argon2: '^0.45.1' },
+  peerDependencies: { zod: 'workspace:^' },
+  exports: { '.': { [SOURCE_CONDITION]: './src/index.ts' } },
+};
+
 describe('publishManifest', () => {
   it('drops the source condition from the published entry', () => {
     expect(publishManifest(devManifest).exports['.']).not.toHaveProperty(SOURCE_CONDITION);
@@ -28,5 +37,19 @@ describe('publishManifest', () => {
 
     expect(devManifest.files).toEqual(['dist', 'src']);
     expect(devManifest.exports['.']).toHaveProperty(SOURCE_CONDITION);
+  });
+
+  it('resolves a workspace range to the package version a consumer can install', () => {
+    const published = publishManifest(workspaceManifest);
+
+    expect(published.dependencies?.['@naulabs/errors']).toBe('0.0.0');
+    expect(published.dependencies?.argon2).toBe('^0.45.1');
+    expect(workspaceManifest.dependencies?.['@naulabs/errors']).toBe('workspace:*');
+  });
+
+  it('keeps a caret workspace range a caret and a pinned range pinned', () => {
+    const published = publishManifest({ ...workspaceManifest, version: '1.2.3' });
+
+    expect(published.peerDependencies?.zod).toBe('^1.2.3');
   });
 });

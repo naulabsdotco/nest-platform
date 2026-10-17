@@ -1,3 +1,3 @@
 export interface PasswordPolicy {
-  validate(password: string): void;
+  validate(password: string): void | Promise<void>;
 }
