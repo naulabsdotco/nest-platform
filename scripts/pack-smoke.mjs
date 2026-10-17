@@ -15,7 +15,9 @@ const parityCheck = pathToFileURL(join(root, 'scripts/export-conditions.mjs')).h
 // A non-empty surface is the probe: an empty barrel makes this fail, which is the
 // point — pack-smoke has to be red before a package exports anything.
 const check = `
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
 import { typeMismatches } from ${JSON.stringify(parityCheck)};
 const load = createRequire(import.meta.url);
 const names = ${JSON.stringify(packages)};
@@ -30,8 +32,23 @@ for (const name of names) {
   }
   const mismatches = typeMismatches(esm, cjs);
   if (mismatches.length > 0) throw new Error(name + ': export types differ: ' + mismatches.join(', '));
+
+  // Every declared dependency a consumer installs must resolve from the packed package alone.
+  // A workspace: range is a monorepo alias, not something a consumer's npm can install.
+  const manifestPath = load.resolve('@naulabs/' + name + '/package.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const dir = dirname(manifestPath);
+  const declared = { ...manifest.peerDependencies, ...manifest.dependencies };
+  for (const dep of Object.keys(declared)) {
+    if (manifest.peerDependenciesMeta?.[dep]?.optional === true) continue;
+    if (String(declared[dep]).startsWith('workspace:')) {
+      throw new Error(name + ': the packed manifest still carries a workspace range for ' + dep);
+    }
+    load.resolve(dep, { paths: [dir] });
+  }
 }
 console.log('pack-smoke: ' + names.length + ' packages export the same surface under import and require');
+console.log('pack-smoke: every declared dependency resolves from the packed package');
 `;
 
 const run = (command, args, cwd) => execFileSync(command, args, { cwd, stdio: 'inherit' });

@@ -4,6 +4,22 @@ import { fileURLToPath } from 'node:url';
 
 export const SOURCE_CONDITION = '@naulabs/source';
 
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
+
+// `workspace:` is a monorepo-only alias; a consumer's npm cannot resolve it, so it is rewritten to
+// the same version the package is being published at.
+const resolveWorkspaceRanges = (pkg) => {
+  for (const field of DEPENDENCY_FIELDS) {
+    const deps = pkg[field];
+    if (!deps) continue;
+    for (const [name, range] of Object.entries(deps)) {
+      if (typeof range !== 'string' || !range.startsWith('workspace:')) continue;
+      const suffix = range.slice('workspace:'.length);
+      deps[name] = suffix === '*' || suffix === '^' || suffix === '~' ? `${suffix === '*' ? '' : suffix}${pkg.version}` : suffix;
+    }
+  }
+};
+
 // The dev condition and the raw sources must not reach a consumer: the condition would load
 // TypeScript out of node_modules, and `src` is not part of the published surface.
 export function publishManifest(manifest) {
@@ -11,6 +27,7 @@ export function publishManifest(manifest) {
   const entry = pkg.exports?.['.'];
   if (entry) delete entry[SOURCE_CONDITION];
   pkg.files = (pkg.files ?? []).filter((file) => file !== 'src');
+  resolveWorkspaceRanges(pkg);
   return pkg;
 }
 
