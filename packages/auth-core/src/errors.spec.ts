@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AUTH_ERROR_CODES,
   AUTH_ERROR_STATUS,
+  AuthConfigError,
   AuthInvalidCredentialsError,
   AuthInvalidTokenError,
   AuthPasswordPolicyError,
@@ -31,6 +32,7 @@ const failures: ReadonlyArray<readonly [AuthError, string, number]> = [
   [new AuthPasswordPolicyError(), 'AUTH_PASSWORD_POLICY', 422],
   [new ReauthFailedError(), 'AUTH_REAUTH_FAILED', 401],
   [new MissingRouteGuardError(), 'INTERNAL_ERROR', 500],
+  [new AuthConfigError(), 'INTERNAL_ERROR', 500],
 ];
 
 describe('auth errors', () => {
@@ -54,7 +56,7 @@ describe('auth errors', () => {
     expect(new ReauthFailedError().code).toBe('AUTH_REAUTH_FAILED');
   });
 
-  it('no error carries a credential or a token in criteria', () => {
+  it('package-raised errors default to no criteria, so nothing secret is attached', () => {
     for (const [error] of failures) {
       expect(error.criteria).toBeUndefined();
       // The code is the only thing a package-raised failure serializes; criteria is caller-supplied.

@@ -5,7 +5,8 @@ the store, the permission catalogue and the password policy are injected through
 
 ## Implement these ports
 
-A consumer supplies the adapters; the package never compiles one in.
+A consumer supplies the adapters; the package never compiles one in. The package depends on
+`@naulabs/errors` for the shared error taxonomy; install it alongside.
 
 | Port | The consumer answers |
 | --- | --- |
@@ -24,6 +25,8 @@ A consumer supplies the adapters; the package never compiles one in.
 
 ## Config
 
-`authCoreConfigSchema` pins the JWT key map, the active key id, the issuer, the audience and the
-token lifetimes. It fails when the active key id is absent from the key map, and rejects a secret
-shorter than 256 bits.
+`authCoreConfigSchema` pins the JWT key map, the active key id, the issuer, the audience and the token
+lifetimes. It fails when the active key id is absent from the key map, rejects a secret that is short
+or low-diversity, and bounds each lifetime. Generate a key with `openssl rand -base64 32`; the
+`audience` must be unique to this deployment, because HS256 verifies anywhere that shares a secret.
+

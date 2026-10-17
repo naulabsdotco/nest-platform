@@ -18,6 +18,7 @@ export const AUTH_ERROR_CODES = {
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES];
 
 // INTERNAL_ERROR is deliberately absent: fromDomain fails an unmapped code closed to a 500.
+// An overridden code is the consumer's to map; a code that collides with a mapped one takes its status.
 export const AUTH_ERROR_STATUS: StatusMap<AuthErrorCode> = {
   AUTH_INVALID_TOKEN: 401,
   AUTH_USER_INACTIVE: 403,
@@ -108,6 +109,12 @@ export class ReauthFailedError extends AuthError {
 }
 
 export class MissingRouteGuardError extends AuthError {
+  constructor(criteria?: unknown, code?: string) {
+    super(AUTH_ERROR_CODES.INTERNAL_ERROR, criteria, code);
+  }
+}
+
+export class AuthConfigError extends AuthError {
   constructor(criteria?: unknown, code?: string) {
     super(AUTH_ERROR_CODES.INTERNAL_ERROR, criteria, code);
   }
