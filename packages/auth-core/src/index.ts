@@ -1,4 +1,6 @@
 export * from './config';
+export * from './crypto/argon2-options';
+export * from './crypto/password-verifier';
 export * from './errors';
 export * from './ports/auth-store';
 export * from './ports/clock';
