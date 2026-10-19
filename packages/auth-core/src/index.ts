@@ -2,6 +2,8 @@ export * from './config';
 export * from './crypto/argon2-options';
 export * from './crypto/password-verifier';
 export * from './errors';
+export * from './guards/reflection';
+export * from './guards/route-metadata';
 export * from './ports/auth-store';
 export * from './ports/clock';
 export * from './ports/permission-catalogue';
