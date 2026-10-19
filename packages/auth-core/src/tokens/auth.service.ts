@@ -75,7 +75,6 @@ export class AuthService {
     if (record !== null) await this.opts.store.revokeRefreshFamily(record.familyId);
   }
 
-  // A single scope needs no selection; several do, and the selected one must be held, never guessed.
   private async deny(input: LoginInput, reason: string, error: AuthError): Promise<never> {
     await this.record(input, 'denied', reason);
     throw error;

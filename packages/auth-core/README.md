@@ -135,7 +135,8 @@ one scope gets it; with several, a missing selection throws `AuthScopeSelectionR
 and a selection the subject does not hold is refused rather than guessed. Every attempt is recorded
 with a SHA-256 email hash, never the password or the plaintext address. `refresh(presented)` delegates
 to `RefreshService.rotate` and mints a new access token; `logout` revokes the presented token's whole
-family. `AuthService` takes only the store, verifier, token service and refresh service: the store
+family, and an unknown token is ignored so logout stays idempotent and does not reveal whether it
+existed. `AuthService` takes only the store, verifier, token service and refresh service: the store
 stamps attempts, and `ResetService` owns the password policy.
 
 
