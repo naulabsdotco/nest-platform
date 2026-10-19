@@ -14,4 +14,5 @@ export * from './ports/permission-catalogue';
 export * from './ports/password-policy';
 export * from './ports/scope-resolver';
 export * from './tokens/refresh.service';
+export * from './tokens/reset.service';
 export * from './tokens/token.service';
