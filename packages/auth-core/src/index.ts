@@ -8,6 +8,7 @@ export * from './guards/permission.guard';
 export * from './guards/reflection';
 export * from './guards/route-metadata';
 export * from './guards/scope.guard';
+export * from './module';
 export * from './ports/auth-store';
 export * from './ports/clock';
 export * from './ports/permission-catalogue';
