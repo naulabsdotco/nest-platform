@@ -118,5 +118,12 @@ the token through a compare-and-set: a second consume throws `AuthResetTokenCons
 one throws `AuthResetTokenExpiredError`. On success it stores an argon2id hash and revokes every refresh
 family for the subject. The token is never a JWT, and only its hash reaches the store.
 
+`consumeResetToken`, `replaceCredentialHash` and `revokeRefreshForSubjects` are three independent port
+calls with no transaction seam: if the store fails between them, the token may be spent without the
+password changing, or the password may change while a refresh family survives. An adapter that needs
+all-or-nothing must make those three writes atomic itself. The result of `forgotPassword` is identical
+for a known and an unknown address, but the timing is not constant — the known path also writes and
+sends — so it is a result guarantee, not a timing guarantee.
+
 
 
