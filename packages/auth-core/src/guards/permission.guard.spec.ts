@@ -1,7 +1,7 @@
 import { type ExecutionContext, type Type } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it } from 'vitest';
-import { AuthRoleForbiddenError, MissingRouteGuardError } from '../errors';
+import { AuthInvalidTokenError, AuthRoleForbiddenError, MissingRouteGuardError } from '../errors';
 import type { AuthScope } from '../ports/auth-store';
 import type { PermissionCatalogue } from '../ports/permission-catalogue';
 import type { ScopeResolver } from '../ports/scope-resolver';
@@ -70,12 +70,20 @@ describe('PermissionGuard', () => {
 
   it('allows @Authenticated without reading the catalogue', async () => {
     const { guard, catalogue } = guardWith([]);
-    const request: Request = { scope: SCOPE };
+    const request: Request = { principal: { sub: 'subject-1' }, scope: SCOPE };
 
     await expect(
       guard.canActivate(contextFor(request, MemberController, MemberController.prototype.member)),
     ).resolves.toBe(true);
     expect(catalogue.calls).toEqual([]);
+  });
+
+  it('refuses @Authenticated without a verified principal', async () => {
+    const { guard } = guardWith([]);
+
+    await expect(
+      guard.canActivate(contextFor({ scope: SCOPE }, MemberController, MemberController.prototype.member)),
+    ).rejects.toBeInstanceOf(AuthInvalidTokenError);
   });
 
   it('a grant held for another scope does not satisfy the guard', async () => {

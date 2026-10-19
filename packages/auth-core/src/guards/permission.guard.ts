@@ -21,9 +21,16 @@ export class PermissionGuard implements CanActivate {
     );
     // Fail closed: a route that names none of the keys cannot be reached even if the guard is bound.
     if (policy === null) throw new MissingRouteGuardError();
-    if (policy.kind !== 'permission') return true;
+    if (policy.kind === 'public') return true;
 
-    const scope = context.switchToHttp().getRequest<ScopedRequest>().scope;
+    const request = context.switchToHttp().getRequest<ScopedRequest>();
+    // Without a verified principal the JWT guard did not run; an authenticated route must not pass.
+    if (policy.kind === 'authenticated') {
+      if (request.principal?.sub === undefined) throw new AuthInvalidTokenError();
+      return true;
+    }
+
+    const scope = request.scope;
     if (scope === undefined) throw new AuthInvalidTokenError();
 
     const grants = await this.catalogue.grantsFor(scope.scope, scope.role);

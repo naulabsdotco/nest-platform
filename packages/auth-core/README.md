@@ -16,7 +16,7 @@ A consumer supplies the adapters; the package never compiles one in. The package
 | `PasswordPolicy` | whether a candidate password is acceptable |
 | `Clock` | "now", so expiry and reuse grace are testable |
 
-`AuthScope` is `{ subject, scope, role }`; the meaning of `scope` and `role` is the consumer's.
+`AuthScope` is `{ subject, scope, role, active }`; the meaning of `scope` and `role` is the consumer's.
 
 ## Error codes
 
@@ -82,8 +82,9 @@ token's other claims, so a scope there cannot override the resolver.
 
 `PermissionGuard` reads `request.scope`, calls `PermissionCatalogue.grantsFor(scope, role)` once per
 request, and satisfies `@RequirePermission(id)` only with a grant containing that exact id —
-otherwise `AuthRoleForbiddenError` (403). `@Authenticated` is allowed without reading the catalogue,
-and `@Public` is allowed outright. A route that carries none of the three keys is refused with
+otherwise `AuthRoleForbiddenError` (403). `@Authenticated` is allowed without reading the catalogue but
+only when a verified principal is present, so a missing JWT guard fails closed rather than through.
+`@Public` is allowed outright. A route that carries none of the three keys is refused with
 `MissingRouteGuardError`, so default-deny holds even when the guards are not bound.
 
 
