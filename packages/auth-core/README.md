@@ -148,11 +148,13 @@ default) and both tokens store a SHA-256 `token_hash`, uniquely indexed. There i
 membership table; the scope model is the consumer's.
 
 `emitAuthSql({ destDir, utc14 })`, also runnable as
-`node node_modules/@naulabs/auth-core/bin/emit-auth-sql.mjs --dest <dir> --utc14 <14 digits>`, copies
+`emit-auth-sql --dest <dir> --utc14 <14 digits>` (or
+`node node_modules/@naulabs/auth-core/bin/emit-auth-sql.mjs`), copies
 each file into the consumer's migration directory as `<utc14>_<name>.sql`. It never executes them and
 refuses to overwrite an existing target, so a second emit fails loudly instead of silently replacing a
-file. **The consumer owns the migration** — its forward file, rollback, verification and schema
-assertions; the package never runs a migration or connects as an elevated role.
+file; a write that fails midway removes the files that run created. **The consumer owns the migration**
+— its forward file, rollback, verification and schema assertions; the package never runs a migration or
+connects as an elevated role.
 
 
 

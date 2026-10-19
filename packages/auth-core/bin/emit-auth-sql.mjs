@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { access, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { access, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,9 +34,17 @@ export async function emitAuthSql({ destDir, utc14 }) {
   }
 
   await mkdir(destDir, { recursive: true });
-  for (const { source, target } of targets) {
-    // `wx` is the second line of defence: the pre-check above is not atomic on its own.
-    await writeFile(target, await readFile(source), { flag: 'wx' });
+  const written = [];
+  try {
+    for (const { source, target } of targets) {
+      // `wx` is the second line of defence: the pre-check above is not atomic on its own.
+      await writeFile(target, await readFile(source), { flag: 'wx' });
+      written.push(target);
+    }
+  } catch (error) {
+    // A half-written set would be blocked from retry by the overwrite guard; remove only this run's files.
+    await Promise.all(written.map((path) => rm(path, { force: true })));
+    throw error;
   }
   return targets.map(({ target }) => target);
 }
@@ -57,7 +66,19 @@ async function run() {
   for (const written of await emitAuthSql({ destDir, utc14 })) console.log(written);
 }
 
-if (process.argv[1] === here) {
+// A consumer invokes this through node_modules/.bin, which is a symlink: argv[1] is the link while
+// import.meta.url is the real file, so the two must be compared after realpath.
+const isMain = () => {
+  const invoked = process.argv[1];
+  if (invoked === undefined) return false;
+  try {
+    return realpathSync(invoked) === realpathSync(here);
+  } catch {
+    return false;
+  }
+};
+
+if (isMain()) {
   run().catch((error) => {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
