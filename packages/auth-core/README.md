@@ -125,5 +125,18 @@ all-or-nothing must make those three writes atomic itself. The result of `forgot
 for a known and an unknown address, but the timing is not constant — the known path also writes and
 sends — so it is a result guarantee, not a timing guarantee.
 
+## Login
+
+`AuthService.login({ email, password, scope?, ip? })` verifies the credential and returns the access
+token, the refresh token and the resolved `AuthScope`. Every credential failure is the same
+`AuthInvalidCredentialsError`, and an unknown email still runs `verifyDummy`, so it does not answer
+faster than a wrong password. A `rehash` from the verifier replaces the stored hash. A subject with
+one scope gets it; with several, a missing selection throws `AuthScopeSelectionRequiredError` (400),
+and a selection the subject does not hold is refused rather than guessed. Every attempt is recorded
+with a SHA-256 email hash, never the password or the plaintext address. `refresh(presented)` delegates
+to `RefreshService.rotate` and mints a new access token; `logout` revokes the presented token's whole
+family. `AuthService` takes only the store, verifier, token service and refresh service: the store
+stamps attempts, and `ResetService` owns the password policy.
+
 
 
