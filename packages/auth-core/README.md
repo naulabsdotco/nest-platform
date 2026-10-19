@@ -87,5 +87,18 @@ only when a verified principal is present, so a missing JWT guard fails closed r
 `@Public` is allowed outright. A route that carries none of the three keys is refused with
 `MissingRouteGuardError`, so default-deny holds even when the guards are not bound.
 
+## Refresh
+
+`RefreshService.issue(subjectId)` mints 32 random bytes (base64url) and stores only their SHA-256 hex
+with a fresh `familyId`. `rotate(presented)` hashes the presented token and looks the hash up — no
+plaintext column exists. A live token is marked used atomically and replaced in the same family. A
+token consumed within `reuseGraceSeconds` re-issues in the family without revoking, because the
+plaintext is never stored, so the re-issue is a new token rather than the same one. A token consumed
+outside the grace, or one already revoked, revokes the entire family and throws
+`AuthRefreshReuseDetectedError`; an expired or unknown token throws `AuthInvalidTokenError`. Losing
+the `markRefreshUsed` compare-and-set (two tabs refreshing at once) re-reads the row and applies the
+same grace, so a benign race does not revoke the family. Reuse detection logs the
+`auth.refresh.reuse_detected` event with the `event` and `outcome` fields and never the token.
+
 
 
