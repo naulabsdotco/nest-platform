@@ -37,8 +37,9 @@ export class RefreshService {
 
     const now = this.opts.clock.now();
     if (record.revokedAt !== null) return this.rejectReuse(record);
-    if (record.expiresAt.getTime() <= now.getTime()) throw new AuthInvalidTokenError();
+    // A consumed token is judged for reuse before expiry: a replay after expiry must revoke the family.
     if (record.usedAt !== null) return this.reissue(record, now);
+    if (record.expiresAt.getTime() <= now.getTime()) throw new AuthInvalidTokenError();
 
     const marked = await this.opts.store.markRefreshUsed(record.id);
     if (!marked) {
@@ -48,7 +49,12 @@ export class RefreshService {
       return this.reissue(current, now);
     }
 
-    return this.rotateInto(record);
+    const rotated = await this.rotateInto(record);
+    // The CAS cannot see a concurrent revoke, which would leave the new row live in a family the
+    // caller believes destroyed. Re-read and revoke the family again before handing the token out.
+    const after = await this.opts.store.findRefreshByHash(tokenHash);
+    if (after !== null && after.revokedAt !== null) return this.rejectReuse(after);
+    return rotated;
   }
 
   private async mint(familyId: string, subjectId: string): Promise<{ token: string; expiresAt: Date }> {
@@ -59,11 +65,16 @@ export class RefreshService {
   }
 
   private async reissue(record: RefreshRecord, now: Date): Promise<RotatedRefresh> {
+    if (record.revokedAt !== null) return this.rejectReuse(record);
+
     const usedAt = record.usedAt;
-    if (usedAt !== null && now.getTime() - usedAt.getTime() <= this.opts.reuseGraceSeconds * 1000) {
-      return this.rotateInto(record);
-    }
-    return this.rejectReuse(record);
+    const withinGrace =
+      usedAt !== null && now.getTime() - usedAt.getTime() <= this.opts.reuseGraceSeconds * 1000;
+    if (!withinGrace) return this.rejectReuse(record);
+    // Inside the grace but already expired: refuse rather than mint a successor for a dead row.
+    if (record.expiresAt.getTime() <= now.getTime()) throw new AuthInvalidTokenError();
+
+    return this.rotateInto(record);
   }
 
   private async rotateInto(record: Pick<RefreshRecord, 'familyId' | 'subjectId'>): Promise<RotatedRefresh> {

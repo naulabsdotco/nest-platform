@@ -95,10 +95,17 @@ plaintext column exists. A live token is marked used atomically and replaced in 
 token consumed within `reuseGraceSeconds` re-issues in the family without revoking, because the
 plaintext is never stored, so the re-issue is a new token rather than the same one. A token consumed
 outside the grace, or one already revoked, revokes the entire family and throws
-`AuthRefreshReuseDetectedError`; an expired or unknown token throws `AuthInvalidTokenError`. Losing
-the `markRefreshUsed` compare-and-set (two tabs refreshing at once) re-reads the row and applies the
-same grace, so a benign race does not revoke the family. Reuse detection logs the
-`auth.refresh.reuse_detected` event with the `event` and `outcome` fields and never the token.
+`AuthRefreshReuseDetectedError`, and a consumed token is judged for reuse before expiry, so a replay
+after expiry still revokes. An expired token that was never used, or an unknown one, throws
+`AuthInvalidTokenError`. Losing the `markRefreshUsed` compare-and-set re-reads the row and applies the
+same grace. After a successful rotation the service re-reads the presented row: if a concurrent logout
+revoked the family, it revokes it again — which also kills the row just minted — and throws.
+
+The store's `markRefreshUsed` must compare-and-set on `used_at IS NULL AND revoked_at IS NULL`. That
+CAS closes the read/CAS race; the post-rotation re-read is a compensating check. An adapter that needs
+the remaining window closed must serialize `issueRefresh` and `revokeRefreshFamily` on the family (a
+lock or a family row). Reuse detection logs the `auth.refresh.reuse_detected` event with the `event`
+and `outcome` fields and never the token.
 
 
 

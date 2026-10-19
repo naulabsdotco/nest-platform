@@ -22,6 +22,7 @@ class RefreshStore {
   readonly savedInputs: RefreshInput[] = [];
   readonly revokedFamilies: string[] = [];
   readonly usedIds: string[] = [];
+  onMarked?: (familyId: string) => void;
   private readonly rows = new Map<string, RefreshRecord>();
   private seq = 0;
 
@@ -51,6 +52,7 @@ class RefreshStore {
       if (row.usedAt !== null) return false;
       this.rows.set(hash, { ...row, usedAt: this.clock.now() });
       this.usedIds.push(id);
+      this.onMarked?.(row.familyId);
       return true;
     }
     return false;
@@ -58,9 +60,18 @@ class RefreshStore {
 
   async revokeRefreshFamily(familyId: string): Promise<void> {
     this.revokedFamilies.push(familyId);
+    this.revokeDirect(familyId);
+  }
+
+  // Simulates a concurrent logout that this service did not perform, so it is not in `revokedFamilies`.
+  revokeDirect(familyId: string): void {
     for (const [hash, row] of this.rows) {
       if (row.familyId === familyId) this.rows.set(hash, { ...row, revokedAt: this.clock.now() });
     }
+  }
+
+  liveCount(): number {
+    return [...this.rows.values()].filter((row) => row.revokedAt === null).length;
   }
 
   asStore(): AuthStore {
@@ -213,6 +224,60 @@ describe('RefreshService.rotate', () => {
 
     expect(result.accessInput).toEqual({ familyId: 'family-1', subjectId: 'subject-1' });
     expect(revoked).toEqual([]);
+  });
+
+  it('a lost CAS whose re-read is revoked revokes the family and throws', async () => {
+    const time = clock();
+    const base: RefreshRecord = {
+      id: 'row-1',
+      familyId: 'family-1',
+      subjectId: 'subject-1',
+      expiresAt: new Date(time.now().getTime() + 3600 * 1000),
+      usedAt: null,
+      revokedAt: null,
+    };
+    const revoked: string[] = [];
+    let reads = 0;
+    const store = {
+      issueRefresh: async (input: RefreshInput): Promise<RefreshRecord> => ({ ...base, familyId: input.familyId }),
+      findRefreshByHash: async (): Promise<RefreshRecord | null> =>
+        reads++ === 0 ? base : { ...base, usedAt: time.now(), revokedAt: time.now() },
+      markRefreshUsed: async (): Promise<boolean> => false,
+      revokeRefreshFamily: async (familyId: string): Promise<void> => {
+        revoked.push(familyId);
+      },
+    } as unknown as AuthStore;
+    const service = new RefreshService({ store, clock: time, reuseGraceSeconds: 10, refreshTtlSeconds: 3600 });
+
+    await expect(service.rotate('token-presented-twice')).rejects.toBeInstanceOf(AuthRefreshReuseDetectedError);
+    expect(revoked).toEqual(['family-1']);
+  });
+
+  it('a rotate that races a logout revokes the newly minted row and throws', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+    const service = serviceOver(store, time);
+    const { token } = await service.issue('subject-1');
+    const { familyId } = store.savedInputs[0];
+    // The logout lands between rotate's read and its compare-and-set.
+    store.onMarked = () => store.revokeDirect(familyId);
+
+    await expect(service.rotate(token)).rejects.toBeInstanceOf(AuthRefreshReuseDetectedError);
+    expect(store.revokedFamilies).toEqual([familyId]);
+    expect(store.liveCount()).toBe(0);
+  });
+
+  it('a consumed token replayed after expiry still revokes the family', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+    const service = serviceOver(store, time);
+    const { token } = await service.issue('subject-1');
+    const { familyId } = store.savedInputs[0];
+    await service.rotate(token);
+    time.advance(3601);
+
+    await expect(service.rotate(token)).rejects.toBeInstanceOf(AuthRefreshReuseDetectedError);
+    expect(store.revokedFamilies).toEqual([familyId]);
   });
 
   it('reuse detection emits auth.refresh.reuse_detected and never the token', async () => {
