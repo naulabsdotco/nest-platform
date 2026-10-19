@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
-import { type ExecutionContext, type INestApplicationContext, type Type } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { Module, type ExecutionContext, type INestApplicationContext, type Type } from '@nestjs/common';
+import { APP_GUARD, NestFactory } from '@nestjs/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as barrel from './index';
 import { AuthConfigError, AuthInvalidTokenError, type AuthError } from './errors';
@@ -40,6 +40,7 @@ const apps: INestApplicationContext[] = [];
 const context = async (overrides: Partial<AuthCoreOptions> = {}): Promise<INestApplicationContext> => {
   const app = await NestFactory.createApplicationContext(AuthCoreModule.forRoot(options(overrides)), {
     logger: false,
+    abortOnError: false,
   });
   apps.push(app);
   return app;
@@ -69,6 +70,18 @@ const errorOf = async (run: () => Promise<unknown>): Promise<AuthError> => {
   throw new Error('the call was expected to reject');
 };
 
+// A consumer imports forRoot and binds the guards itself, with useClass; the module's exported tokens
+// must make that resolve in the consumer's module context.
+@Module({
+  imports: [AuthCoreModule.forRoot(options())],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: ScopeGuard },
+    { provide: APP_GUARD, useClass: PermissionGuard },
+  ],
+})
+class ConsumerModule {}
+
 describe('AuthCoreModule.forRoot', () => {
   it('provides the services, the strategy and the three guards', async () => {
     const app = await context();
@@ -94,10 +107,44 @@ describe('AuthCoreModule.forRoot', () => {
   });
 
   it('requires every seam, with no optional store, resolver or catalogue', () => {
-    for (const seam of ['store', 'scopeResolver', 'permissionCatalogue', 'clock', 'passwordPolicy', 'resetLinkSink', 'tokenConfig'] as const) {
+    for (const seam of [
+      'store',
+      'scopeResolver',
+      'permissionCatalogue',
+      'clock',
+      'passwordPolicy',
+      'resetLinkSink',
+      'tokenConfig',
+      'reuseGraceSeconds',
+      'refreshTtlSeconds',
+      'resetTtlMinutes',
+    ] as const) {
       const missing = { ...options(), [seam]: undefined } as unknown as AuthCoreOptions;
       expect(() => AuthCoreModule.forRoot(missing)).toThrow(AuthConfigError);
     }
+  });
+
+  it('rejects a non-positive TTL or a negative grace at boot', () => {
+    const invalid: Array<Partial<AuthCoreOptions>> = [
+      { refreshTtlSeconds: 0 },
+      { refreshTtlSeconds: -1 },
+      { resetTtlMinutes: 0 },
+      { reuseGraceSeconds: -1 },
+      { tokenConfig: { ...options().tokenConfig, accessTtlSeconds: 0 } },
+    ];
+
+    for (const override of invalid) {
+      expect(() => AuthCoreModule.forRoot(options(override))).toThrow(AuthConfigError);
+    }
+  });
+
+  it('a consumer module can register the guards with APP_GUARD useClass', async () => {
+    const app = await NestFactory.createApplicationContext(ConsumerModule, { logger: false, abortOnError: false });
+    apps.push(app);
+
+    expect(app.get(JwtAuthGuard)).toBeInstanceOf(JwtAuthGuard);
+    expect(app.get(ScopeGuard)).toBeInstanceOf(ScopeGuard);
+    expect(app.get(PermissionGuard)).toBeInstanceOf(PermissionGuard);
   });
 
   it('an overridden code map changes the thrown code without changing the class', async () => {
@@ -113,12 +160,17 @@ describe('AuthCoreModule.forRoot', () => {
   it('a deep import fails resolution', () => {
     const require = createRequire(import.meta.url);
 
-    expect(() => require.resolve('@naulabs/auth-core/dist/esm/module.js')).toThrow();
+    for (const deep of ['dist/esm/module.js', 'dist/cjs/di.js', 'src/di.ts', 'src/tokens/jwt-keys.ts']) {
+      expect(() => require.resolve(`@naulabs/auth-core/${deep}`)).toThrow();
+    }
   });
 
   it('the barrel exposes no internal token or helper', () => {
     expect(barrel).not.toHaveProperty('AUTH_CODES');
+    expect(barrel).not.toHaveProperty('AUTH_OPTIONS');
+    expect(barrel).not.toHaveProperty('JWT_STRATEGY');
     expect(barrel).not.toHaveProperty('SCOPE_RESOLVER');
+    expect(barrel).not.toHaveProperty('PERMISSION_CATALOGUE');
     expect(barrel).not.toHaveProperty('keyByKid');
   });
 });

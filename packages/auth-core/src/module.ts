@@ -50,11 +50,25 @@ const REQUIRED_SEAMS: ReadonlyArray<keyof AuthCoreOptions> = [
   'passwordPolicy',
   'resetLinkSink',
   'tokenConfig',
+  'reuseGraceSeconds',
+  'refreshTtlSeconds',
+  'resetTtlMinutes',
 ];
+
+const assertPositive = (value: number, name: string): void => {
+  if (!Number.isFinite(value) || value <= 0) throw new AuthConfigError({ invalid: name });
+};
 
 const assertSeams = (opts: AuthCoreOptions): void => {
   for (const seam of REQUIRED_SEAMS) {
     if (opts[seam] === undefined || opts[seam] === null) throw new AuthConfigError({ missing: seam });
+  }
+  // The zod schema bounds these; a hand-built options object must fail the same way at boot.
+  assertPositive(opts.tokenConfig.accessTtlSeconds, 'tokenConfig.accessTtlSeconds');
+  assertPositive(opts.refreshTtlSeconds, 'refreshTtlSeconds');
+  assertPositive(opts.resetTtlMinutes, 'resetTtlMinutes');
+  if (!Number.isFinite(opts.reuseGraceSeconds) || opts.reuseGraceSeconds < 0) {
+    throw new AuthConfigError({ invalid: 'reuseGraceSeconds' });
   }
 };
 
@@ -127,6 +141,9 @@ export class AuthCoreModule {
       module: AuthCoreModule,
       providers: providersFor(opts),
       exports: [
+        AUTH_CODES,
+        SCOPE_RESOLVER,
+        PERMISSION_CATALOGUE,
         TOKEN_SERVICE,
         PASSWORD_VERIFIER,
         JWT_STRATEGY,

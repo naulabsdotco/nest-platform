@@ -20,13 +20,15 @@ AuthCoreModule.forRoot({
 });
 ```
 
-`forRoot` requires every seam and refuses to boot with one missing. It provides `TokenService`,
-`PasswordVerifier`, `RefreshService`, `ResetService`, `AuthService`, the JWT strategy and the three
-guards. It does not register the guards globally: add them as `APP_GUARD` providers in the order
-`JwtAuthGuard` → `ScopeGuard` → `PermissionGuard` (see [Guard order](#guard-order)). A consumer may
-override error codes with `codes: { AUTH_INVALID_TOKEN: '…' }`; the class stays the same and only the
-reported code changes. The reference migration is emitted with `emitAuthSql` and belongs to the
-consumer (see [Reference SQL](#reference-sql)).
+`forRoot` requires every seam and refuses to boot with one missing or with a non-positive TTL or a
+negative reuse grace, mirroring the config schema. It provides `TokenService`, `PasswordVerifier`,
+`RefreshService`, `ResetService`, `AuthService`, the JWT strategy and the three guards. It does not
+register the guards globally: add them as `APP_GUARD` providers in the order `JwtAuthGuard` →
+`ScopeGuard` → `PermissionGuard` (see [Guard order](#guard-order)); the module exports the tokens those
+guards inject, so `useClass` resolves in the consumer's module. A consumer may override error codes
+with `codes: { AUTH_INVALID_TOKEN: '…' }`; the class stays the same and only the reported code changes.
+The reference migration is emitted with `emitAuthSql` and belongs to the consumer (see
+[Reference SQL](#reference-sql)).
 
 ## Implement these ports
 
