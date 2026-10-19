@@ -13,6 +13,7 @@ export * from './ports/clock';
 export * from './ports/permission-catalogue';
 export * from './ports/password-policy';
 export * from './ports/scope-resolver';
+export { emitAuthSql } from '../bin/emit-auth-sql.mjs';
 export * from './tokens/auth.service';
 export * from './tokens/refresh.service';
 export * from './tokens/reset.service';

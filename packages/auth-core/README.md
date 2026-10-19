@@ -139,5 +139,20 @@ family, and an unknown token is ignored so logout stays idempotent and does not 
 existed. `AuthService` takes only the store, verifier, token service and refresh service: the store
 stamps attempts, and `ResetService` owns the password policy.
 
+## Reference SQL
+
+`packages/auth-core/sql/` ships five forward-only files — `subject`, `subject_credential`,
+`refresh_token`, `password_reset_token` and `login_attempt` — that apply cleanly to a stock
+`postgres:17`. No plaintext credential or token column exists: a credential stores `hash` (argon2id by
+default) and both tokens store a SHA-256 `token_hash`, uniquely indexed. There is no scope or
+membership table; the scope model is the consumer's.
+
+`emitAuthSql({ destDir, utc14 })`, also runnable as
+`node node_modules/@naulabs/auth-core/bin/emit-auth-sql.mjs --dest <dir> --utc14 <14 digits>`, copies
+each file into the consumer's migration directory as `<utc14>_<name>.sql`. It never executes them and
+refuses to overwrite an existing target, so a second emit fails loudly instead of silently replacing a
+file. **The consumer owns the migration** — its forward file, rollback, verification and schema
+assertions; the package never runs a migration or connects as an elevated role.
+
 
 
