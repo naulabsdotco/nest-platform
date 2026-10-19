@@ -66,7 +66,8 @@ mechanism, not preference, because each writes what the next reads. `JwtAuthGuar
 token from the `Authorization` header only, verifies it against the pinned `algorithms`, `issuer` and
 `audience` with `ignoreExpiration: false`, requires `typ: 'access'`, and writes `{ sub }` to
 `request.principal` — no other claim is trusted, so a scope in the token is ignored. A `@Public` route
-skips verification; every other failure is one `AuthInvalidTokenError` (401), never the reason. The
+skips verification and therefore carries no principal; a downstream guard must not assume one.
+Every other failure is one `AuthInvalidTokenError` (401), never the reason. The
 strategy accepts any `kid` still present in the key map, so rotating `activeKid` keeps old access
 tokens verifying; `createJwtStrategy` refuses a key map whose active `kid` is absent or whose secret
 is weak, like the token service.

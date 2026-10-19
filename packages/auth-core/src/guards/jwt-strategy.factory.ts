@@ -15,6 +15,7 @@ export interface JwtStrategyOptions {
 interface AccessPayload {
   sub?: unknown;
   typ?: unknown;
+  exp?: unknown;
 }
 
 // The pinned options are the mechanism: passport-jwt verifies a token signed by the right key for
@@ -42,7 +43,13 @@ export function createJwtStrategy(opts: JwtStrategyOptions): Type<unknown> {
 
     // Returning the subject alone drops every other claim, so nothing a token carries is trusted.
     validate(payload: AccessPayload): Principal {
-      if (payload.typ !== 'access' || typeof payload.sub !== 'string' || payload.sub.length === 0) {
+      if (
+        payload.typ !== 'access' ||
+        typeof payload.sub !== 'string' ||
+        payload.sub.length === 0 ||
+        // jsonwebtoken only checks exp when it is present, so an exp-less token would never expire.
+        typeof payload.exp !== 'number'
+      ) {
         throw new AuthInvalidTokenError();
       }
       return { sub: payload.sub };

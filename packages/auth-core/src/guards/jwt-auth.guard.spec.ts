@@ -133,6 +133,17 @@ describe('JwtAuthGuard', () => {
     await rejection(bearer(sign({ sub: 'subject-1', typ: 'access' }, { expiresIn: -10 })));
   });
 
+  it('a token with no exp claim is refused', async () => {
+    const token = jwt.sign({ sub: 'subject-1', typ: 'access' }, SECRET, {
+      algorithm: 'HS256',
+      keyid: ACTIVE_KID,
+      issuer: 'https://issuer.example',
+      audience: 'example-app',
+    });
+
+    await rejection(bearer(token));
+  });
+
   it('a token whose typ is not access is refused', async () => {
     await rejection(bearer(sign({ sub: 'subject-1', typ: 'refresh' })));
   });
