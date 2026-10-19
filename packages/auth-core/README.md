@@ -72,5 +72,19 @@ strategy accepts any `kid` still present in the key map, so rotating `activeKid`
 tokens verifying; `createJwtStrategy` refuses a key map whose active `kid` is absent or whose secret
 is weak, like the token service.
 
+## Scope and permissions
+
+`ScopeGuard` calls the injected `ScopeResolver` with the verified `sub` and writes the resolved
+`AuthScope` to `request.scope`; a missing row is `AuthInvalidTokenError` (401) and a scope whose
+`active` is false is `AuthUserInactiveError` (403). `AuthScope.active` is required, not optional, so a
+resolver that forgets it fails to compile rather than read as active. The guard never looks at the
+token's other claims, so a scope there cannot override the resolver.
+
+`PermissionGuard` reads `request.scope`, calls `PermissionCatalogue.grantsFor(scope, role)` once per
+request, and satisfies `@RequirePermission(id)` only with a grant containing that exact id —
+otherwise `AuthRoleForbiddenError` (403). `@Authenticated` is allowed without reading the catalogue,
+and `@Public` is allowed outright. A route that carries none of the three keys is refused with
+`MissingRouteGuardError`, so default-deny holds even when the guards are not bound.
+
 
 
