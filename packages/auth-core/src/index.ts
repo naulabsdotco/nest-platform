@@ -2,6 +2,8 @@ export * from './config';
 export * from './crypto/argon2-options';
 export * from './crypto/password-verifier';
 export * from './errors';
+export * from './guards/jwt-auth.guard';
+export * from './guards/jwt-strategy.factory';
 export * from './guards/reflection';
 export * from './guards/route-metadata';
 export * from './ports/auth-store';

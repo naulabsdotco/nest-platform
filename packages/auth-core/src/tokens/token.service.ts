@@ -1,6 +1,6 @@
 import jwt, { type JwtPayload } from 'jsonwebtoken';
-import { isStrongSecret } from '../config';
 import { AuthConfigError, AuthInvalidTokenError } from '../errors';
+import { assertSigningKeys, keyByKid } from './jwt-keys';
 
 export interface TokenConfig {
   keys: Record<string, string>;
@@ -20,10 +20,7 @@ const ALGORITHM = 'HS256';
 // A hand-built config bypasses the schema, so the factory refuses a config it cannot sign safely with.
 const assertUsable = (config: TokenConfig): void => {
   if (!config.issuer || !config.audience) throw new AuthConfigError({ reason: 'issuer and audience are required' });
-  if (!Object.hasOwn(config.keys, config.activeKid)) throw new AuthConfigError({ activeKid: config.activeKid });
-  for (const kid of Object.keys(config.keys)) {
-    if (!isStrongSecret(config.keys[kid])) throw new AuthConfigError({ kid });
-  }
+  assertSigningKeys(config);
 };
 
 export function createTokenService(config: TokenConfig): TokenService {
@@ -43,8 +40,7 @@ export function createTokenService(config: TokenConfig): TokenService {
 
     verifyAccess(token) {
       // The kid is read without trust only to pick a key; an own key is required, not an inherited one.
-      const kid = jwt.decode(token, { complete: true })?.header.kid;
-      const key = typeof kid === 'string' && Object.hasOwn(config.keys, kid) ? config.keys[kid] : undefined;
+      const key = keyByKid(config.keys, token);
       if (key === undefined) throw new AuthInvalidTokenError();
 
       let payload: JwtPayload | string;
