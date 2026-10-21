@@ -61,6 +61,7 @@ export interface AuthStore {
   replaceCredentialHash(subjectId: string, hash: string): Promise<void>;
   issueRefresh(input: RefreshInput): Promise<RefreshRecord>;
   findRefreshByHash(tokenHash: string): Promise<RefreshRecord | null>;
+  // Must compare-and-set on `used_at IS NULL AND revoked_at IS NULL`; a used or revoked row returns false.
   markRefreshUsed(id: string): Promise<boolean>;
   revokeRefreshFamily(familyId: string): Promise<void>;
   revokeRefreshForSubjects(subjectIds: readonly string[]): Promise<void>;

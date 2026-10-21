@@ -87,5 +87,25 @@ only when a verified principal is present, so a missing JWT guard fails closed r
 `@Public` is allowed outright. A route that carries none of the three keys is refused with
 `MissingRouteGuardError`, so default-deny holds even when the guards are not bound.
 
+## Refresh
+
+`RefreshService.issue(subjectId)` mints 32 random bytes (base64url) and stores only their SHA-256 hex
+with a fresh `familyId`. `rotate(presented)` hashes the presented token and looks the hash up — no
+plaintext column exists. A live token is marked used atomically and replaced in the same family. A
+token consumed within `reuseGraceSeconds` re-issues in the family without revoking, because the
+plaintext is never stored, so the re-issue is a new token rather than the same one. A token consumed
+outside the grace, or one already revoked, revokes the entire family and throws
+`AuthRefreshReuseDetectedError`, and a consumed token is judged for reuse before expiry, so a replay
+after expiry still revokes. An expired token that was never used, or an unknown one, throws
+`AuthInvalidTokenError`. Losing the `markRefreshUsed` compare-and-set re-reads the row and applies the
+same grace. After a successful rotation the service re-reads the presented row: if a concurrent logout
+revoked the family, it revokes it again — which also kills the row just minted — and throws.
+
+The store's `markRefreshUsed` must compare-and-set on `used_at IS NULL AND revoked_at IS NULL`. That
+CAS closes the read/CAS race; the post-rotation re-read is a compensating check. An adapter that needs
+the remaining window closed must serialize `issueRefresh` and `revokeRefreshFamily` on the family (a
+lock or a family row). Reuse detection logs the `auth.refresh.reuse_detected` event with the `event`
+and `outcome` fields and never the token.
+
 
 
