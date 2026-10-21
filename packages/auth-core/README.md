@@ -16,7 +16,7 @@ A consumer supplies the adapters; the package never compiles one in. The package
 | `PasswordPolicy` | whether a candidate password is acceptable |
 | `Clock` | "now", so expiry and reuse grace are testable |
 
-`AuthScope` is `{ subject, scope, role }`; the meaning of `scope` and `role` is the consumer's.
+`AuthScope` is `{ subject, scope, role, active }`; the meaning of `scope` and `role` is the consumer's.
 
 ## Error codes
 
@@ -71,6 +71,21 @@ Every other failure is one `AuthInvalidTokenError` (401), never the reason. The
 strategy accepts any `kid` still present in the key map, so rotating `activeKid` keeps old access
 tokens verifying; `createJwtStrategy` refuses a key map whose active `kid` is absent or whose secret
 is weak, like the token service.
+
+## Scope and permissions
+
+`ScopeGuard` calls the injected `ScopeResolver` with the verified `sub` and writes the resolved
+`AuthScope` to `request.scope`; a missing row is `AuthInvalidTokenError` (401) and a scope whose
+`active` is false is `AuthUserInactiveError` (403). `AuthScope.active` is required, not optional, so a
+resolver that forgets it fails to compile rather than read as active. The guard never looks at the
+token's other claims, so a scope there cannot override the resolver.
+
+`PermissionGuard` reads `request.scope`, calls `PermissionCatalogue.grantsFor(scope, role)` once per
+request, and satisfies `@RequirePermission(id)` only with a grant containing that exact id —
+otherwise `AuthRoleForbiddenError` (403). `@Authenticated` is allowed without reading the catalogue but
+only when a verified principal is present, so a missing JWT guard fails closed rather than through.
+`@Public` is allowed outright. A route that carries none of the three keys is refused with
+`MissingRouteGuardError`, so default-deny holds even when the guards are not bound.
 
 
 

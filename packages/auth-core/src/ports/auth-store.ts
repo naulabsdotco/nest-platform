@@ -6,6 +6,8 @@ export interface AuthScope {
   readonly subject: string;
   readonly scope: string;
   readonly role: string;
+  // Required, not optional: a resolver that omits it cannot accidentally read as active.
+  readonly active: boolean;
 }
 
 export interface StoredCredential {
