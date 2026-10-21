@@ -1,19 +1,28 @@
 import { createRequire } from 'node:module';
-import { Module, type ExecutionContext, type INestApplicationContext, type Type } from '@nestjs/common';
-import { APP_GUARD, NestFactory } from '@nestjs/core';
+import { type CanActivate, type ExecutionContext, type INestApplicationContext, type Type } from '@nestjs/common';
+import { ApplicationConfig, NestFactory } from '@nestjs/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as barrel from './index';
-import { AuthConfigError, AuthInvalidTokenError, type AuthError } from './errors';
+import {
+  AuthConfigError,
+  AuthInvalidTokenError,
+  AuthRoleForbiddenError,
+  MissingRouteGuardError,
+  type AuthError,
+} from './errors';
 import { JWT_STRATEGY, PASSWORD_VERIFIER, TOKEN_SERVICE } from './di';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionGuard } from './guards/permission.guard';
+import { Public, RequirePermission } from './guards/route-metadata';
 import { ScopeGuard } from './guards/scope.guard';
 import { AuthCoreModule, type AuthCoreOptions } from './module';
 import { AuthService } from './tokens/auth.service';
 import { RefreshService } from './tokens/refresh.service';
 import { ResetService } from './tokens/reset.service';
+import type { TokenService } from './tokens/token.service';
 
 const SECRET = '0123456789abcdef'.repeat(2);
+const SCOPE = { subject: 'subject-1', scope: 'example-app', role: 'member', active: true };
 
 const options = (overrides: Partial<AuthCoreOptions> = {}): AuthCoreOptions => ({
   store: {} as AuthCoreOptions['store'],
@@ -54,12 +63,41 @@ class GuardedController {
   guarded(): void {}
 }
 
-const guardedContext = (): ExecutionContext =>
+class OpenController {
+  @Public()
+  open(): void {}
+}
+
+class PermissionController {
+  @RequirePermission('thing:read')
+  read(): void {}
+}
+
+class BareController {
+  bare(): void {}
+}
+
+interface Request {
+  headers: Record<string, string>;
+}
+
+const routeContext = (request: Request, controller: Type<unknown>, handler: () => void): ExecutionContext =>
   ({
-    switchToHttp: () => ({ getRequest: () => ({ headers: {} }), getResponse: () => ({}) }),
-    getHandler: () => GuardedController.prototype.guarded,
-    getClass: () => GuardedController,
+    switchToHttp: () => ({ getRequest: () => request, getResponse: () => ({}) }),
+    getHandler: () => handler,
+    getClass: () => controller,
   }) as unknown as ExecutionContext;
+
+const guardsOf = (app: INestApplicationContext): readonly CanActivate[] =>
+  app.get(ApplicationConfig).getGlobalGuards();
+
+const runGuards = async (app: INestApplicationContext, contextOfRoute: ExecutionContext): Promise<void> => {
+  for (const guard of guardsOf(app)) {
+    if (!(await guard.canActivate(contextOfRoute))) throw new Error('a guard denied');
+  }
+};
+
+const bearer = (token: string): Request => ({ headers: { authorization: `Bearer ${token}` } });
 
 const errorOf = async (run: () => Promise<unknown>): Promise<AuthError> => {
   try {
@@ -69,18 +107,6 @@ const errorOf = async (run: () => Promise<unknown>): Promise<AuthError> => {
   }
   throw new Error('the call was expected to reject');
 };
-
-// A consumer imports forRoot and binds the guards itself, with useClass; the module's exported tokens
-// must make that resolve in the consumer's module context.
-@Module({
-  imports: [AuthCoreModule.forRoot(options())],
-  providers: [
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
-    { provide: APP_GUARD, useClass: ScopeGuard },
-    { provide: APP_GUARD, useClass: PermissionGuard },
-  ],
-})
-class ConsumerModule {}
 
 describe('AuthCoreModule.forRoot', () => {
   it('provides the services, the strategy and the three guards', async () => {
@@ -97,13 +123,14 @@ describe('AuthCoreModule.forRoot', () => {
     expect(app.get(PermissionGuard)).toBeInstanceOf(PermissionGuard);
   });
 
-  it('provides the guards in the order JwtAuth, Scope, Permission', () => {
-    const guards: readonly Type<unknown>[] = [JwtAuthGuard, ScopeGuard, PermissionGuard];
-    const provided = (AuthCoreModule.forRoot(options()).providers ?? [])
-      .filter((provider): provider is Type<unknown> => typeof provider === 'function' && guards.includes(provider))
-      .map((provider) => provider.name);
+  it('registers JwtAuth, Scope and Permission globally, in that order', async () => {
+    const app = await context();
 
-    expect(provided).toEqual(['JwtAuthGuard', 'ScopeGuard', 'PermissionGuard']);
+    expect(guardsOf(app).map((guard) => guard.constructor.name)).toEqual([
+      'JwtAuthGuard',
+      'ScopeGuard',
+      'PermissionGuard',
+    ]);
   });
 
   it('requires every seam, with no optional store, resolver or catalogue', () => {
@@ -138,20 +165,69 @@ describe('AuthCoreModule.forRoot', () => {
     }
   });
 
-  it('a consumer module can register the guards with APP_GUARD useClass', async () => {
-    const app = await NestFactory.createApplicationContext(ConsumerModule, { logger: false, abortOnError: false });
-    apps.push(app);
+  it('denies a @RequirePermission route to a valid token without the grant', async () => {
+    const app = await context({ scopeResolver: { resolve: async () => SCOPE } });
+    const token = app.get<TokenService>(TOKEN_SERVICE).issueAccess('subject-1').accessToken;
+    const route = routeContext(bearer(token), PermissionController, PermissionController.prototype.read);
 
-    expect(app.get(JwtAuthGuard)).toBeInstanceOf(JwtAuthGuard);
-    expect(app.get(ScopeGuard)).toBeInstanceOf(ScopeGuard);
-    expect(app.get(PermissionGuard)).toBeInstanceOf(PermissionGuard);
+    await expect(runGuards(app, route)).rejects.toBeInstanceOf(AuthRoleForbiddenError);
+  });
+
+  it('denies a route that carries no metadata', async () => {
+    const app = await context({ scopeResolver: { resolve: async () => SCOPE } });
+    const token = app.get<TokenService>(TOKEN_SERVICE).issueAccess('subject-1').accessToken;
+    const route = routeContext(bearer(token), BareController, BareController.prototype.bare);
+
+    await expect(runGuards(app, route)).rejects.toBeInstanceOf(MissingRouteGuardError);
+  });
+
+  it('allows a @Public route with no token', async () => {
+    const app = await context();
+    const route = routeContext({ headers: {} }, OpenController, OpenController.prototype.open);
+
+    await expect(runGuards(app, route)).resolves.toBeUndefined();
+  });
+
+  it('does not reach the scope resolver when the token is invalid', async () => {
+    let calls = 0;
+    const app = await context({
+      scopeResolver: {
+        resolve: async () => {
+          calls += 1;
+          return SCOPE;
+        },
+      },
+    });
+    const route = routeContext({ headers: {} }, PermissionController, PermissionController.prototype.read);
+
+    await expect(runGuards(app, route)).rejects.toBeInstanceOf(AuthInvalidTokenError);
+    expect(calls).toBe(0);
+  });
+
+  it('does not reach the permission catalogue when the scope fails', async () => {
+    let calls = 0;
+    const app = await context({
+      scopeResolver: { resolve: async () => null },
+      permissionCatalogue: {
+        grantsFor: async () => {
+          calls += 1;
+          return new Set<string>();
+        },
+      },
+    });
+    const token = app.get<TokenService>(TOKEN_SERVICE).issueAccess('subject-1').accessToken;
+    const route = routeContext(bearer(token), PermissionController, PermissionController.prototype.read);
+
+    await expect(runGuards(app, route)).rejects.toBeInstanceOf(AuthInvalidTokenError);
+    expect(calls).toBe(0);
   });
 
   it('an overridden code map changes the thrown code without changing the class', async () => {
     const app = await context({ codes: { AUTH_INVALID_TOKEN: 'EXAMPLE_INVALID' } });
     app.get(JWT_STRATEGY);
 
-    const error = await errorOf(() => app.get(JwtAuthGuard).canActivate(guardedContext()));
+    const route = routeContext({ headers: {} }, GuardedController, GuardedController.prototype.guarded);
+    const error = await errorOf(() => app.get(JwtAuthGuard).canActivate(route));
 
     expect(error).toBeInstanceOf(AuthInvalidTokenError);
     expect(error.code).toBe('EXAMPLE_INVALID');

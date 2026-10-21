@@ -1,4 +1,5 @@
 import { Module, type DynamicModule, type Provider } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { createPasswordVerifier, type PasswordVerifier } from './crypto/password-verifier';
 import {
   AUTH_CODES,
@@ -129,6 +130,10 @@ const providersFor = (opts: AuthCoreOptions): Provider[] => {
     JwtAuthGuard,
     ScopeGuard,
     PermissionGuard,
+    // Global registration in this order is the mechanism: a consumer cannot omit or misorder them.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: ScopeGuard },
+    { provide: APP_GUARD, useClass: PermissionGuard },
   ];
 };
 
