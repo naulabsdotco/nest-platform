@@ -14,7 +14,7 @@ import {
   releaseDryRun,
   tarballIssues,
 } from './release-dry-run.mjs';
-import { publishArgs } from './release-publish.mjs';
+import { publishArgs, packedManifestIssues, packedTarballIssues } from './release-publish.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const CHANGESET = join(ROOT, 'node_modules/@changesets/cli/bin.js');
@@ -148,5 +148,25 @@ describe('release dry run', () => {
       '--tag',
       'latest',
     ]);
+  });
+
+  it('refuses a packed tarball whose manifest still carries a workspace range', async () => {
+    const dir = await tempDir();
+    await write(join(dir, 'index.js'), 'export {};\n');
+    await write(
+      join(dir, 'package.json'),
+      JSON.stringify({
+        name: '@fixture/packed',
+        version: '1.0.0',
+        files: ['index.js'],
+        dependencies: { '@naulabs/errors': 'workspace:*' },
+      }),
+    );
+    execFileSync('npm', ['pack', '--pack-destination', dir], { cwd: dir, stdio: 'ignore' });
+
+    expect(packedTarballIssues(join(dir, 'fixture-packed-1.0.0.tgz'))).toEqual([
+      '@naulabs/errors keeps a workspace range',
+    ]);
+    expect(packedManifestIssues({ private: true })).toEqual(['private: true']);
   });
 });
