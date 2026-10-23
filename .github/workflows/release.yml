@@ -1,13 +1,20 @@
 name: release
 
 on:
+  push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   dry-run:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -19,6 +26,58 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # The publish job lands in ticket #18, once the packages exist and the
-      # @naulabs npm organisation and NPM_TOKEN secret are in place.
       - run: pnpm exec changeset status --since=origin/${{ github.base_ref }}
+      - run: pnpm exec nx run-many -t build
+      - name: pack every package and fail on a missing dist file
+        run: node scripts/release-dry-run.mjs
+      - name: the packed tarball resolves under both require() and import()
+        run: node scripts/pack-smoke.mjs
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # changesets pushes the version commit and its tags
+      id-token: write # npm provenance
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec nx run-many -t build
+      # Versioning is part of publishing: without a token the whole release is skipped so the
+      # changesets stay pending instead of being consumed with nothing published.
+      - name: version packages
+        if: env.NPM_TOKEN != ''
+        run: |
+          pnpm exec changeset version
+          if git diff --quiet; then
+            echo "nothing to version"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "chore(release): version packages"
+            git push
+          fi
+      - name: changeset status is clean after versioning
+        if: env.NPM_TOKEN != ''
+        run: node scripts/release-dry-run.mjs
+      - name: publish with provenance
+        if: env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # changesets does not forward npm flags, so --provenance is set through npm's config env.
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: pnpm exec changeset publish --tag latest
+      - name: publish skipped
+        if: env.NPM_TOKEN == ''
+        run: echo "::notice::NPM_TOKEN is not set. Enable Actions, create the @naulabs npm org and add the NPM_TOKEN secret, then re-run."

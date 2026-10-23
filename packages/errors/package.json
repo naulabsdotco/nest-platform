@@ -4,7 +4,7 @@
   "description": "Domain and application error taxonomy, fromDomain translation and a pluggable-envelope HTTP filter.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/naulabsdotco/nest-platform.git", "directory": "packages/errors" },
-  "private": true,
+  "private": false,
   "type": "module",
   "sideEffects": false,
   "exports": {
