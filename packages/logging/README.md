@@ -1,4 +1,4 @@
-# @naulabs/logging
+# @naulabsco/logging
 
 pino logger module with a correlation id and a redaction list a consumer can
 extend but not empty.
@@ -6,13 +6,13 @@ extend but not empty.
 ## Install
 
 ```sh
-pnpm add @naulabs/logging
+pnpm add @naulabsco/logging
 ```
 
 ## Usage
 
 ```ts
-import { createLoggerModule, correlationMiddleware } from '@naulabs/logging';
+import { createLoggerModule, correlationMiddleware } from '@naulabsco/logging';
 
 @Module({
   imports: [createLoggerModule({ service: 'example-app', contextFields: ['tenantId'] })],

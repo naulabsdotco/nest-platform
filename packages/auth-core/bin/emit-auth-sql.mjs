@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 // the other's format, so the same file serves the bin, dist/esm and dist/cjs.
 const here = typeof __filename === 'string' ? __filename : fileURLToPath(import.meta.url);
 // Resolved through the package root: the bundled copy in dist/ must still find the shipped sql/.
-const SQL_DIR = join(dirname(createRequire(here).resolve('@naulabs/auth-core/package.json')), 'sql');
+const SQL_DIR = join(dirname(createRequire(here).resolve('@naulabsco/auth-core/package.json')), 'sql');
 const UTC14 = /^\d{14}$/;
 // The package's ordinal orders its own files; a consumer orders by the utc14 prefix it passes in.
 const ORDINAL = /^\d{4}_/;

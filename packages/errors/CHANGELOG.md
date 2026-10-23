@@ -1,4 +1,4 @@
-# @naulabs/errors
+# @naulabsco/errors
 
 ## 0.1.0
 

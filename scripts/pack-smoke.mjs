@@ -22,8 +22,8 @@ import { typeMismatches } from ${JSON.stringify(parityCheck)};
 const load = createRequire(import.meta.url);
 const names = ${JSON.stringify(packages)};
 for (const name of names) {
-  const esm = await import('@naulabs/' + name);
-  const cjs = load('@naulabs/' + name);
+  const esm = await import('@naulabsco/' + name);
+  const cjs = load('@naulabsco/' + name);
   const fromEsm = Object.keys(esm).sort();
   const fromCjs = Object.keys(cjs).sort();
   if (fromEsm.length === 0) throw new Error(name + ': the packed barrel exports nothing');
@@ -35,7 +35,7 @@ for (const name of names) {
 
   // Every declared dependency a consumer installs must resolve from the packed package alone.
   // A workspace: range is a monorepo alias, not something a consumer's npm can install.
-  const manifestPath = load.resolve('@naulabs/' + name + '/package.json');
+  const manifestPath = load.resolve('@naulabsco/' + name + '/package.json');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const dir = dirname(manifestPath);
   const declared = { ...manifest.peerDependencies, ...manifest.dependencies };
@@ -62,11 +62,11 @@ const pack = async (name, scratch) => {
   await buildPackage(dir);
   const { version } = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8'));
   run('npm', ['pack', '--pack-destination', scratch], dir);
-  const listing = execFileSync('tar', ['-tzf', join(scratch, `naulabs-${name}-${version}.tgz`)], { encoding: 'utf8' });
+  const listing = execFileSync('tar', ['-tzf', join(scratch, `naulabsco-${name}-${version}.tgz`)], { encoding: 'utf8' });
   if (listing.split('\n').some((entry) => entry.startsWith('package/src/'))) {
     throw new Error(`${name}: the packed tarball still ships src/`);
   }
-  return `file:naulabs-${name}-${version}.tgz`;
+  return `file:naulabsco-${name}-${version}.tgz`;
 };
 
 export async function packAndBoot() {
@@ -74,7 +74,7 @@ export async function packAndBoot() {
   const scratch = await mkdtemp(join(tmpdir(), 'pack-smoke-'));
   try {
     const dependencies = { ...majors };
-    for (const name of packages) dependencies[`@naulabs/${name}`] = await pack(name, scratch);
+    for (const name of packages) dependencies[`@naulabsco/${name}`] = await pack(name, scratch);
 
     const fixture = { name: 'pack-smoke-fixture', private: true, type: 'module', dependencies };
     await writeFile(join(scratch, 'package.json'), `${JSON.stringify(fixture, null, 2)}\n`);

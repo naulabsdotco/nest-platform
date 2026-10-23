@@ -1,5 +1,5 @@
 {
-  "name": "@naulabs/auth-core",
+  "name": "@naulabsco/auth-core",
   "version": "0.1.0",
   "description": "Consumer-agnostic authentication primitives: tokens, password verification, refresh rotation, reset tokens and guards.",
   "license": "MIT",
@@ -9,7 +9,7 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "@naulabs/source": "./src/index.ts",
+      "@naulabsco/source": "./src/index.ts",
       "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
       "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.js" }
     },
@@ -18,7 +18,7 @@
   "files": ["dist", "sql", "bin", "!bin/*.spec.ts", "src"],
   "bin": { "emit-auth-sql": "./bin/emit-auth-sql.mjs" },
   "publishConfig": { "access": "public", "provenance": true },
-  "dependencies": {"@naulabs/errors":"workspace:*","@nestjs/passport":"^12.0.0","argon2":"^0.45.1","jsonwebtoken":"^9.0.3","passport":"^0.7.0","passport-jwt":"^4.0.1"},
+  "dependencies": {"@naulabsco/errors":"workspace:*","@nestjs/passport":"^12.0.0","argon2":"^0.45.1","jsonwebtoken":"^9.0.3","passport":"^0.7.0","passport-jwt":"^4.0.1"},
   "peerDependencies": {"@nestjs/common":"^12.0.0","@nestjs/core":"^12.0.0","bcrypt":"^6.0.0","zod":"^4.0.0"},
   "peerDependenciesMeta": {"bcrypt":{"optional":true}},
   "devDependencies": {"@testcontainers/postgresql":"^12.2.1","@types/bcrypt":"^6.0.0","@types/jsonwebtoken":"^9.0.10","@types/passport-jwt":"^4.0.1","@types/pg":"^8.23.1","bcrypt":"^6.0.0","pg":"^8.23.1"},

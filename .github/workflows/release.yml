@@ -111,4 +111,4 @@ jobs:
         run: pnpm exec changeset publish
       - name: publish skipped
         if: env.NPM_TOKEN == ''
-        run: echo "::notice::NPM_TOKEN is not set. Enable Actions, create the @naulabs npm org and add the NPM_TOKEN secret, then re-run."
+        run: echo "::notice::NPM_TOKEN is not set. Enable Actions, create the @naulabsco npm org and add the NPM_TOKEN secret, then re-run."

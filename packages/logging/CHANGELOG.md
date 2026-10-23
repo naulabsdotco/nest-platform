@@ -1,4 +1,4 @@
-# @naulabs/logging
+# @naulabsco/logging
 
 ## 0.1.0
 

@@ -1,8 +1,8 @@
-# `@naulabs/auth-core` security review
+# `@naulabsco/auth-core` security review
 
 Signer: opencode deepseek-v4.1-flash
 Date: 2026-10-23
-Scope: the `0.1.0` public surface of `@naulabs/auth-core`.
+Scope: the `0.1.0` public surface of `@naulabsco/auth-core`.
 
 Each row names the test that proves it. `node scripts/security-review.mjs` fails when a row is
 missing, when a named test no longer exists, or when `Signer` or `Date` is empty. The

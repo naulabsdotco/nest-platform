@@ -1,4 +1,4 @@
-# @naulabs/config
+# @naulabsco/config
 
 Parse and validate the environment at boot. A bad environment stops the process,
 and the error names the failing keys without echoing a value it read.
@@ -7,7 +7,7 @@ and the error names the failing keys without echoing a value it read.
 
 ```ts
 import { Module } from '@nestjs/common';
-import { createConfigModule } from '@naulabs/config';
+import { createConfigModule } from '@naulabsco/config';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -25,7 +25,7 @@ so type the injected value yourself.
 
 ```ts
 import { Inject } from '@nestjs/common';
-import { APP_CONFIG } from '@naulabs/config';
+import { APP_CONFIG } from '@naulabsco/config';
 
 constructor(
   @Inject(APP_CONFIG) private readonly config: { PORT: number; REGION: string },

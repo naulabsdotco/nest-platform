@@ -1,4 +1,4 @@
-# @naulabs/config
+# @naulabsco/config
 
 ## 0.1.0
 

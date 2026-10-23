@@ -20,7 +20,7 @@ export function pendingPackages(changesetDir) {
   const names = readdirSync(changesetDir)
     .filter((file) => file.endsWith('.md'))
     .flatMap((file) =>
-      [...readFileSync(join(changesetDir, file), 'utf8').matchAll(/^"(@naulabs\/[\w-]+)":/gm)].map(
+      [...readFileSync(join(changesetDir, file), 'utf8').matchAll(/^"(@naulabsco\/[\w-]+)":/gm)].map(
         (match) => match[1],
       ),
     );
@@ -76,7 +76,7 @@ export function releaseDryRun({
 
   const pending = pendingPackages(join(root, '.changeset'));
   for (const name of pending) {
-    if (!packages.includes(name.replace('@naulabs/', ''))) {
+    if (!packages.includes(name.replace('@naulabsco/', ''))) {
       problems.push(`pending changeset for ${name}, which is not a workspace package`);
     }
   }

@@ -52,10 +52,10 @@ describe('release dry run', () => {
     const root = await tempDir();
     await mkdir(join(root, '.changeset'), { recursive: true });
     await mkdir(join(root, 'packages/config'), { recursive: true });
-    await write(join(root, 'packages/config/package.json'), '{"name":"@naulabs/config"}');
-    await write(join(root, '.changeset/pending.md'), '---\n"@naulabs/config": minor\n---\n\nchange\n');
+    await write(join(root, 'packages/config/package.json'), '{"name":"@naulabsco/config"}');
+    await write(join(root, '.changeset/pending.md'), '---\n"@naulabsco/config": minor\n---\n\nchange\n');
 
-    expect([...pendingPackages(join(root, '.changeset'))]).toEqual(['@naulabs/config']);
+    expect([...pendingPackages(join(root, '.changeset'))]).toEqual(['@naulabsco/config']);
     expect(() =>
       releaseDryRun({ root, packages: ['config'], published: [], pack: () => [] }),
     ).toThrow(/config: missing dist\/esm\/index\.js/);
@@ -72,7 +72,7 @@ describe('release dry run', () => {
     await write(join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
     await write(
       join(root, 'packages/config/package.json'),
-      '{"name":"@naulabs/config","version":"0.0.0","private":false}',
+      '{"name":"@naulabsco/config","version":"0.0.0","private":false}',
     );
     await write(
       join(root, '.changeset/config.json'),
@@ -86,7 +86,7 @@ describe('release dry run', () => {
         ignore: [],
       }),
     );
-    await write(join(root, '.changeset/pending.md'), '---\n"@naulabs/config": minor\n---\n\nchange\n');
+    await write(join(root, '.changeset/pending.md'), '---\n"@naulabsco/config": minor\n---\n\nchange\n');
 
     execFileSync(process.execPath, [CHANGESET, 'version'], { cwd: root, stdio: 'pipe' });
 

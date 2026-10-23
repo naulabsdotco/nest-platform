@@ -1,4 +1,4 @@
-# @naulabs/auth-core
+# @naulabsco/auth-core
 
 ## 0.1.0
 
@@ -16,7 +16,7 @@
 - 00214c5: Add the route metadata decorators and `assertEveryRouteGuarded`, which fails a route that carries none of the three guard keys.
 - 37d02d9: Add `ScopeGuard` and `PermissionGuard`: the resolved scope is written to the request, an inactive scope is refused with 403, and a route that names none of the three keys fails closed with `MissingRouteGuardError`.
 - 7114cf1: Add an HS256 access-token service whose payload is `{ sub, typ: 'access' }` only, pinned to the active kid, issuer and audience.
-- 9915d6b: Publish `@naulabs/auth-core@0.1.0` only past the signed security review in
+- 9915d6b: Publish `@naulabsco/auth-core@0.1.0` only past the signed security review in
   `docs/auth-core-security-review.md`.
 
 ### Patch Changes
@@ -24,4 +24,4 @@
 - Updated dependencies [ba2f0ad]
 - Updated dependencies [2f60ede]
 - Updated dependencies [8e218f3]
-  - @naulabs/errors@0.1.0
+  - @naulabsco/errors@0.1.0

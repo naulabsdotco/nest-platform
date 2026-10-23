@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SOURCE_CONDITION, publishManifest } from './publish-manifest.mjs';
 
 const devManifest = {
-  name: '@naulabs/config',
+  name: '@naulabsco/config',
   files: ['dist', 'src'],
   exports: {
     '.': {
@@ -15,10 +15,10 @@ const devManifest = {
 };
 
 const workspaceManifest = {
-  name: '@naulabs/auth-core',
+  name: '@naulabsco/auth-core',
   version: '0.0.0',
   files: ['dist', 'src'],
-  dependencies: { '@naulabs/errors': 'workspace:*', argon2: '^0.45.1' },
+  dependencies: { '@naulabsco/errors': 'workspace:*', argon2: '^0.45.1' },
   peerDependencies: { zod: 'workspace:^' },
   exports: { '.': { [SOURCE_CONDITION]: './src/index.ts' } },
 };
@@ -42,9 +42,9 @@ describe('publishManifest', () => {
   it('resolves a workspace range to the package version a consumer can install', () => {
     const published = publishManifest(workspaceManifest);
 
-    expect(published.dependencies?.['@naulabs/errors']).toBe('0.0.0');
+    expect(published.dependencies?.['@naulabsco/errors']).toBe('0.0.0');
     expect(published.dependencies?.argon2).toBe('^0.45.1');
-    expect(workspaceManifest.dependencies?.['@naulabs/errors']).toBe('workspace:*');
+    expect(workspaceManifest.dependencies?.['@naulabsco/errors']).toBe('workspace:*');
   });
 
   it('keeps a caret workspace range a caret and a pinned range pinned', () => {

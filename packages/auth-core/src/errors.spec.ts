@@ -1,4 +1,4 @@
-import { ApplicationError, DomainError } from '@naulabs/errors';
+import { ApplicationError, DomainError } from '@naulabsco/errors';
 import { describe, expect, it } from 'vitest';
 import {
   AUTH_ERROR_CODES,

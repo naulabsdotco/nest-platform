@@ -3,7 +3,7 @@ import type { z } from 'zod';
 import { loadEnv, type EnvReader } from './load-env';
 
 // Symbol.for so a dual ESM/CJS install resolves one token from either copy.
-export const APP_CONFIG: InjectionToken<unknown> = Symbol.for('@naulabs/config/APP_CONFIG');
+export const APP_CONFIG: InjectionToken<unknown> = Symbol.for('@naulabsco/config/APP_CONFIG');
 
 @Global()
 @Module({})

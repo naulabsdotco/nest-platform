@@ -1,4 +1,4 @@
-# @naulabs/errors
+# @naulabsco/errors
 
 A consumer-agnostic error taxonomy: raise a typed error, translate it at one boundary, and render it
 through an envelope you supply.
@@ -37,7 +37,7 @@ Each kind fixes its own status and is abstract on `code`, so a subclass names th
 Register the filter and let it shape the body through a serializer you own:
 
 ```ts
-import { createExceptionFilter, defaultEnvelopeSerializer } from '@naulabs/errors';
+import { createExceptionFilter, defaultEnvelopeSerializer } from '@naulabsco/errors';
 
 const statusFor = { PLAN_EXPIRED: 402 };
 const Filter = createExceptionFilter(defaultEnvelopeSerializer(), statusFor);

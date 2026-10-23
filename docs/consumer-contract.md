@@ -1,10 +1,10 @@
 # Consumer contract
 
 The public surface of the published packages; only the package root is public, anything else may change
-in a patch. Each ships dual ESM + CJS (`import`, `require`, `@naulabs/source`), so both resolve the same
+in a patch. Each ships dual ESM + CJS (`import`, `require`, `@naulabsco/source`), so both resolve the same
 surface. Pin exact versions.
 
-## `@naulabs/config`
+## `@naulabsco/config`
 
 ```ts
 type EnvReader = Record<string, string | undefined>;
@@ -17,7 +17,7 @@ function createConfigModule<T>(schema: z.ZodType<T>, opts?: { raw?: EnvReader })
 The schema is the consumer's; the package owns parse, fail-at-boot and the token. A failure names the
 missing keys and never echoes their values. `zod` is a peer dependency.
 
-## `@naulabs/logging`
+## `@naulabsco/logging`
 
 ```ts
 const CORRELATION_HEADER = 'x-correlation-id';
@@ -31,7 +31,7 @@ function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 Field names are the contract. A consumer adds context fields and redactions; it cannot remove a
 default redaction path. `pino` and `nestjs-pino` are peer dependencies.
 
-## `@naulabs/errors`
+## `@naulabsco/errors`
 
 ```ts
 abstract class DomainError extends Error { abstract readonly code: string; readonly criteria?: unknown }
@@ -56,7 +56,7 @@ The envelope shape is the consumer's. The filter maps `ApplicationError` to its 
 `ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail. `@nestjs/common` is a
 peer dependency.
 
-## `@naulabs/auth-core`
+## `@naulabsco/auth-core`
 
 ```ts
 class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule }
@@ -97,11 +97,11 @@ reference SQL is emitted with `emitAuthSql`; the consumer owns its forward migra
 verification.
 
 `auth-core` publishes only past the signed review in
-[`docs/auth-core-security-review.md`](auth-core-security-review.md). It depends on `@naulabs/errors`;
+[`docs/auth-core-security-review.md`](auth-core-security-review.md). It depends on `@naulabsco/errors`;
 install both.
 
 ## Installing
 
-`pnpm add @naulabs/config @naulabs/logging @naulabs/errors @naulabs/auth-core`. Publishing runs only
-from `main`, with npm provenance; the `@naulabs` npm organisation and `NPM_TOKEN` secret are
+`pnpm add @naulabsco/config @naulabsco/logging @naulabsco/errors @naulabsco/auth-core`. Publishing runs only
+from `main`, with npm provenance; the `@naulabsco` npm organisation and `NPM_TOKEN` secret are
 human-owned prerequisites — see [`SECURITY.md`](../SECURITY.md).
