@@ -3,5 +3,8 @@ packages:
 allowBuilds:
   argon2: true
   bcrypt: true
+  cpu-features: false
   esbuild: true
   nx: true
+  protobufjs: false
+  ssh2: false
