@@ -19,5 +19,9 @@ Publishing is also human-owned: the `@naulabs` npm organisation must exist, the 
 secret must be set, and GitHub Actions must be enabled. Until then the release workflow is green and
 skips the publish step.
 
+The `publish` job runs in the `npm-publish` GitHub environment. Configure that environment with
+required reviewers so a human approves each deployment; the signer check runs before the approval, so
+an agent-signed record alone cannot publish.
+
 This repository ships mechanism only: no credentials, tokens or consumer data. Report a flaw in the
 mechanism, not in a consumer's `AuthStore`, `ScopeResolver` or `PermissionCatalogue`.

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { publishManifest } from './publish-manifest.mjs';
 
 export const WORKSPACE_PACKAGES = ['config', 'logging', 'errors', 'auth-core'];
-export const PUBLISHED_PACKAGES = ['config', 'logging', 'errors'];
+export const PUBLISHED_PACKAGES = ['config', 'logging', 'errors', 'auth-core'];
 export const ARTIFACTS = ['dist/esm/index.js', 'dist/cjs/index.js', 'dist/esm/index.d.ts', 'dist/cjs/index.d.cts'];
 const LOCKFILE = /^(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock)$/;
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];

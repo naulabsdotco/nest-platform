@@ -93,6 +93,17 @@ describe('emitAuthSql', () => {
     expect(await readdir(destDir)).toEqual([]);
   });
 
+  it('emit-auth-sql output has no rollback or verification files', async () => {
+    const destDir = await tempDir();
+
+    const written = await emitAuthSql({ destDir, utc14: UTC14 });
+
+    expect(written).toHaveLength(5);
+    for (const path of written) {
+      expect(basename(path)).not.toMatch(/rollback|verification|verify|down/i);
+    }
+  });
+
   it('the emitted set contains forward SQL only', async () => {
     const destDir = await tempDir();
 
