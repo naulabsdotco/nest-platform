@@ -26,7 +26,11 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec changeset status --since=origin/${{ github.base_ref }}
+      # The version pull request is all version bumps and no changesets, which status reports as an
+      # error; every other pull request must declare a changeset for what it ships.
+      - name: a change that ships declares a changeset
+        if: github.head_ref != 'changeset-release/main'
+        run: pnpm exec changeset status --since=origin/${{ github.base_ref }}
       - run: pnpm exec nx run-many -t build
       - name: pack every package and fail on a missing dist file
         run: node scripts/release-dry-run.mjs
@@ -40,13 +44,46 @@ jobs:
       - name: auth-core publishes only past a signed security review
         run: node scripts/security-review.mjs
 
-  publish:
+  version:
     needs: security-review
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      has-changesets: ${{ steps.changesets.outputs['has-changesets'] }}
+    permissions:
+      contents: write # create or update changeset-release/main
+      pull-requests: write # open or update the version pull request
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # A version commit never lands on main: changesets puts it on changeset-release/main and a PR,
+      # so protected main only ever receives commits through pull requests.
+      - name: open or update the version pull request
+        id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          version-script: pnpm exec changeset version
+          commit-message: 'chore(release): version packages'
+          pr-title: 'chore(release): version packages'
+          pr-base-branch: main
+          # A token owned by a human starts CI on the release PR; github.token opens the PR without
+          # dispatching pull_request events, so close and reopen it to trigger verify.
+          github-token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+  publish:
+    needs: version
+    if: needs.version.outputs['has-changesets'] == 'false'
     environment: npm-publish
     runs-on: ubuntu-latest
     permissions:
-      contents: write # pushes the version commit
+      contents: read
       id-token: write # npm provenance
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -62,34 +99,16 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec nx run-many -t build
-      # Versioning is part of publishing: without a token the whole release is skipped so the
-      # changesets stay pending instead of being consumed with nothing published.
-      - name: version packages
-        if: env.NPM_TOKEN != ''
-        run: |
-          pnpm exec changeset version
-          if git diff --quiet; then
-            echo "nothing to version"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -A
-            git commit -m "chore(release): version packages [skip ci]"
-            git push
-          fi
       - name: pack the versioned packages and fail on a missing dist file
         if: env.NPM_TOKEN != ''
         run: node scripts/release-dry-run.mjs
-      - name: pack the versioned packages for publishing
-        if: env.NPM_TOKEN != ''
-        run: pnpm exec changeset pack --out-dir .release
-      # changesets publishes through pnpm, and pnpm 11 has no provenance support, so the packed
-      # tarballs are published with npm's --provenance instead.
+      # changeset publish uses pnpm, which rewrites workspace:* and is the only publisher here.
       - name: publish with npm provenance
         if: env.NPM_TOKEN != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: node scripts/release-publish.mjs .release
+          PNPM_CONFIG_PROVENANCE: 'true'
+        run: pnpm exec changeset publish
       - name: publish skipped
         if: env.NPM_TOKEN == ''
         run: echo "::notice::NPM_TOKEN is not set. Enable Actions, create the @naulabs npm org and add the NPM_TOKEN secret, then re-run."
