@@ -88,7 +88,7 @@ interface TokenService { issueAccess(sub: string): { accessToken: string; expire
 function createTokenService(cfg: TokenConfig): TokenService;                       // pinned iss/aud/kid, alg HS256, { sub, typ: 'access' } only
 class AuthService { /* login / refresh / logout; login returns tokens plus the resolved scope */ }
 interface ResetLinkSink { send(input: { email: string; token: string }): Promise<void> }
-// guards and decorators — route metadata lives here; the consumer registers the guards
+// guards and decorators — route metadata lives here; forRoot registers the guards
 const PUBLIC_KEY, AUTHENTICATED_KEY, PERMISSION_KEY: string;
 function Public(): MethodDecorator & ClassDecorator;
 function Authenticated(): MethodDecorator & ClassDecorator;
@@ -193,7 +193,7 @@ packs the four packages and installs the tarballs into a small fixture app that 
   is not partitioned.
 - **Codes:** scope selection is `AUTH_SCOPE_SELECTION_REQUIRED` (400); re-auth is `AUTH_REAUTH_FAILED`;
   no vendor-style naming anywhere.
-- **Guards:** `forRoot` provides them; the consumer registers them ordered `JwtAuth → Scope → Permission`.
+- **Guards:** `forRoot` registers them as global guards, ordered `JwtAuth → Scope → Permission`.
 - **Tests:** Vitest; SQL-apply uses testcontainers; `login` returns tokens plus the resolved scope; the
   consumer contract stays in-repo. A human creates the `@naulabs` npm org and sets `NPM_TOKEN` before
   the first publish.

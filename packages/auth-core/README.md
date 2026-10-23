@@ -22,13 +22,12 @@ AuthCoreModule.forRoot({
 
 `forRoot` requires every seam and refuses to boot with one missing or with a non-positive TTL or a
 negative reuse grace, mirroring the config schema. It provides `TokenService`, `PasswordVerifier`,
-`RefreshService`, `ResetService`, `AuthService`, the JWT strategy and the three guards. It does not
-register the guards globally: add them as `APP_GUARD` providers in the order `JwtAuthGuard` →
-`ScopeGuard` → `PermissionGuard` (see [Guard order](#guard-order)); the module exports the tokens those
-guards inject, so `useClass` resolves in the consumer's module. A consumer may override error codes
-with `codes: { AUTH_INVALID_TOKEN: '…' }`; the class stays the same and only the reported code changes.
-The reference migration is emitted with `emitAuthSql` and belongs to the consumer (see
-[Reference SQL](#reference-sql)).
+`RefreshService`, `ResetService`, `AuthService`, the JWT strategy and the three guards, and it
+registers the three guards globally in the order `JwtAuthGuard` → `ScopeGuard` → `PermissionGuard` (see
+[Guard order](#guard-order)); a consumer does not wire them, so it cannot omit or misorder them. A
+consumer may override error codes with `codes: { AUTH_INVALID_TOKEN: '…' }`; the class stays the same
+and only the reported code changes. The reference migration is emitted with `emitAuthSql` and belongs
+to the consumer (see [Reference SQL](#reference-sql)).
 
 ## Implement these ports
 
@@ -88,8 +87,9 @@ that carries none of the keys: default-deny made checkable by a consumer's own t
 
 ## Guard order
 
-Register the guards in the order `JwtAuthGuard` → `ScopeGuard` → `PermissionGuard`; the order is
-mechanism, not preference, because each writes what the next reads. `JwtAuthGuard` takes the bearer
+`forRoot` registers the guards in the order `JwtAuthGuard` → `ScopeGuard` → `PermissionGuard`; the
+order is mechanism, not preference, because each writes what the next reads, and a consumer cannot
+change it. `JwtAuthGuard` takes the bearer
 token from the `Authorization` header only, verifies it against the pinned `algorithms`, `issuer` and
 `audience` with `ignoreExpiration: false`, requires `typ: 'access'`, and writes `{ sub }` to
 `request.principal` — no other claim is trusted, so a scope in the token is ignored. A `@Public` route
