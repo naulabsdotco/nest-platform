@@ -107,5 +107,23 @@ the remaining window closed must serialize `issueRefresh` and `revokeRefreshFami
 lock or a family row). Reuse detection logs the `auth.refresh.reuse_detected` event with the `event`
 and `outcome` fields and never the token.
 
+## Reset
+
+`ResetService.forgotPassword(email)` returns the same empty result whether the address is known or not.
+For a known subject it mints 32 random bytes, stores only the SHA-256 with a bounded expiry, and hands
+the token to the injected `ResetLinkSink`; an unknown address writes nothing and sends nothing. A failed
+send is logged as `auth.reset.link_failed` and swallowed so it cannot become an enumeration oracle.
+`resetPassword(token, newPassword)` runs the `PasswordPolicy` before touching any state, then consumes
+the token through a compare-and-set: a second consume throws `AuthResetTokenConsumedError`, an expired
+one throws `AuthResetTokenExpiredError`. On success it stores an argon2id hash and revokes every refresh
+family for the subject. The token is never a JWT, and only its hash reaches the store.
+
+`consumeResetToken`, `replaceCredentialHash` and `revokeRefreshForSubjects` are three independent port
+calls with no transaction seam: if the store fails between them, the token may be spent without the
+password changing, or the password may change while a refresh family survives. An adapter that needs
+all-or-nothing must make those three writes atomic itself. The result of `forgotPassword` is identical
+for a known and an unknown address, but the timing is not constant — the known path also writes and
+sends — so it is a result guarantee, not a timing guarantee.
+
 
 
