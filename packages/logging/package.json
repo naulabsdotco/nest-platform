@@ -1,6 +1,6 @@
 {
   "name": "@naulabs/logging",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "pino logger module with a correlation id and a redaction list a consumer can extend but not empty.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/naulabsdotco/nest-platform.git", "directory": "packages/logging" },
