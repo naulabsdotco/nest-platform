@@ -4,7 +4,7 @@
   "description": "Consumer-agnostic authentication primitives: tokens, password verification, refresh rotation, reset tokens and guards.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/naulabsdotco/nest-platform.git", "directory": "packages/auth-core" },
-  "private": true,
+  "private": false,
   "type": "module",
   "sideEffects": false,
   "exports": {

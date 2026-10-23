@@ -27,13 +27,23 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec changeset status --since=origin/${{ github.base_ref }}
+      - run: node scripts/security-review.mjs
       - run: pnpm exec nx run-many -t build
       - name: pack every package and fail on a missing dist file
         run: node scripts/release-dry-run.mjs
       - name: the packed tarball resolves under both require() and import()
         run: node scripts/pack-smoke.mjs
 
+  security-review:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: auth-core publishes only past a signed security review
+        run: node scripts/security-review.mjs
+
   publish:
+    needs: security-review
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -65,7 +75,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -A
-            git commit -m "chore(release): version packages"
+            git commit -m "chore(release): version packages [skip ci]"
             git push
           fi
       - name: pack the versioned packages and fail on a missing dist file
