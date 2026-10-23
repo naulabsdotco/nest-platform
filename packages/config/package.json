@@ -4,7 +4,7 @@
   "description": "Zod environment loader that parses at boot and never echoes values.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/naulabsdotco/nest-platform.git", "directory": "packages/config" },
-  "private": true,
+  "private": false,
   "type": "module",
   "sideEffects": false,
   "exports": {

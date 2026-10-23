@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildPackage } from '../tools/build.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const scratch = join(root, '.pack-smoke');
 const packages = ['config', 'logging', 'errors', 'auth-core'];
 // The fixture pins the majors a consumer would install alongside the packages.
 const majors = { '@nestjs/common': '^12.0.0', zod: '^4.0.0', postgres: '^3.0.0' };
@@ -57,7 +57,7 @@ const restoreManifests = () => {
   for (const name of packages) run('node', ['scripts/publish-manifest.mjs', 'restore', `packages/${name}`], root);
 };
 
-const pack = async (name) => {
+const pack = async (name, scratch) => {
   const dir = join(root, 'packages', name);
   await buildPackage(dir);
   const { version } = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8'));
@@ -70,11 +70,11 @@ const pack = async (name) => {
 };
 
 export async function packAndBoot() {
-  await rm(scratch, { recursive: true, force: true });
-  await mkdir(scratch, { recursive: true });
+  // Outside the repo, so a missing dependency cannot resolve through the monorepo's node_modules.
+  const scratch = await mkdtemp(join(tmpdir(), 'pack-smoke-'));
   try {
     const dependencies = { ...majors };
-    for (const name of packages) dependencies[`@naulabs/${name}`] = await pack(name);
+    for (const name of packages) dependencies[`@naulabs/${name}`] = await pack(name, scratch);
 
     const fixture = { name: 'pack-smoke-fixture', private: true, type: 'module', dependencies };
     await writeFile(join(scratch, 'package.json'), `${JSON.stringify(fixture, null, 2)}\n`);
