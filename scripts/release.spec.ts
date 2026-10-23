@@ -14,7 +14,6 @@ import {
   releaseDryRun,
   tarballIssues,
 } from './release-dry-run.mjs';
-import { publishArgs, packedManifestIssues, packedTarballIssues } from './release-publish.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const CHANGESET = join(ROOT, 'node_modules/@changesets/cli/bin.js');
@@ -137,36 +136,34 @@ describe('release dry run', () => {
     expect(await workflow()).toContain('node scripts/pack-smoke.mjs');
     expect(WORKSPACE_PACKAGES).toHaveLength(4);
   });
+});
 
-  it('publishes each packed tarball with npm provenance', () => {
-    expect(publishArgs('/release/packages/naulabs-config-0.1.0.tgz')).toEqual([
-      'publish',
-      '/release/packages/naulabs-config-0.1.0.tgz',
-      '--provenance',
-      '--access',
-      'public',
-      '--tag',
-      'latest',
-    ]);
+describe('release workflow', () => {
+  it('opens a version pull request instead of pushing a version commit to main', async () => {
+    const config = await workflow();
+
+    expect(config).toContain('uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51');
+    expect(config).toContain("pr-title: 'chore(release): version packages'");
+    expect(config).toContain('pr-base-branch: main');
+    expect(config).toContain("if: github.head_ref != 'changeset-release/main'");
+    expect(config).not.toContain('publish-script');
+    expect(config).not.toContain('git push');
+    expect(config).not.toContain('[skip ci]');
   });
 
-  it('refuses a packed tarball whose manifest still carries a workspace range', async () => {
-    const dir = await tempDir();
-    await write(join(dir, 'index.js'), 'export {};\n');
-    await write(
-      join(dir, 'package.json'),
-      JSON.stringify({
-        name: '@fixture/packed',
-        version: '1.0.0',
-        files: ['index.js'],
-        dependencies: { '@naulabs/errors': 'workspace:*' },
-      }),
+  it('uses RELEASE_TOKEN when the owner sets it so CI runs on the release pull request', async () => {
+    expect(await workflow()).toContain(
+      'github-token: ${{ secrets.RELEASE_TOKEN || github.token }}',
     );
-    execFileSync('npm', ['pack', '--pack-destination', dir], { cwd: dir, stdio: 'ignore' });
+  });
 
-    expect(packedTarballIssues(join(dir, 'fixture-packed-1.0.0.tgz'))).toEqual([
-      '@naulabs/errors keeps a workspace range',
-    ]);
-    expect(packedManifestIssues({ private: true })).toEqual(['private: true']);
+  it('publishes only when no changesets remain, behind the npm-publish gate', async () => {
+    const config = await workflow();
+
+    expect(config).toContain("needs.version.outputs['has-changesets'] == 'false'");
+    expect(config).toContain('environment: npm-publish');
+    expect(config).toContain('pnpm exec changeset publish');
+    expect(config).toContain("PNPM_CONFIG_PROVENANCE: 'true'");
+    expect(config).toContain("if: env.NPM_TOKEN != ''");
   });
 });

@@ -26,3 +26,16 @@ code yet. See [`docs/spec.md`](docs/spec.md) for the specification.
 ## Conventions
 
 See [`CLAUDE.md`](CLAUDE.md). [`AGENTS.md`](AGENTS.md) points at it.
+
+## Release
+
+Changesets drive the release; `main` never receives a version commit. While a changeset is pending the
+`release` workflow opens and updates a `chore(release): version packages` pull request from
+`changeset-release/main`; merging it publishes the four packages to public npm with provenance and tags
+the release. The publish job runs in the `npm-publish` environment after the signed `auth-core` security
+review, and it skips publishing when `NPM_TOKEN` is absent.
+
+The owner preconditions are manual: create the `@naulabs` npm organisation, set the `NPM_TOKEN`
+repository secret, and set a fine-grained `RELEASE_TOKEN` secret (contents and pull-requests write) so
+CI runs on the release pull request — without it the pull request still opens, but close and reopen it
+to start `verify`. Allow GitHub Actions to create pull requests at organisation and repository level.

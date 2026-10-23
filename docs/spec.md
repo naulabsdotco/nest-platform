@@ -171,10 +171,16 @@ deep import path.
 ## 8. Versioning, release and smoke
 
 The four packages share one version (one changesets `fixed` group) so a partial upgrade cannot happen;
-consumers pin exact versions. Publishing targets public npm with provenance; the `@naulabs` npm
-organisation and an `NPM_TOKEN` repository secret are human-owned prerequisites for the first publish. CI
-packs the four packages and installs the tarballs into a small fixture app that boots, so a missing
-`dist` file, a missing export condition or a stripped import fails CI rather than a consumer.
+consumers pin exact versions. `main` is protected and only takes pull requests: with pending changesets
+the release workflow opens and updates a `chore(release): version packages` pull request from
+`changeset-release/main`, and no version commit is pushed to `main`. Merging that pull request leaves no
+pending changesets, so the publish job builds and publishes the four packages with `changeset publish`
+to public npm with provenance. Publishing targets public npm; the `@naulabs` npm organisation, an
+`NPM_TOKEN` repository secret and a fine-grained `RELEASE_TOKEN` (contents + pull-requests write, so CI
+runs on the release pull request) are human-owned prerequisites for the first publish; Actions must
+also be allowed to create pull requests at organisation and repository level. CI packs the four
+packages and installs the tarballs into a small fixture app that boots, so a missing `dist` file, a
+missing export condition or a stripped import fails CI rather than a consumer.
 ## 9. Success criteria
 
 - `pnpm exec nx run-many -t lint typecheck test build` is green; `pack-smoke` is green.

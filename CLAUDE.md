@@ -81,5 +81,8 @@ and its schema assertions.
 
 Semver + changesets; the four packages share one version so a partial upgrade cannot happen.
 Consumers pin exact versions; upgrades arrive as bot PRs. Publishing targets **public npm** under
-`@naulabs/*` with provenance. Two steps are manual and human-owned: the `@naulabs` npm organisation
-must exist, and an `NPM_TOKEN` repository secret must be set. A release ticket says so.
+`@naulabs/*` with provenance. A bot pull request from `changeset-release/main` carries the version
+commit; nothing pushes to `main` directly. Three steps are manual and human-owned: the `@naulabs` npm
+organisation must exist, an `NPM_TOKEN` repository secret must be set, and a fine-grained `RELEASE_TOKEN`
+(contents + pull-requests write) must be set so CI runs on the release pull request. Actions must also
+be allowed to create pull requests at organisation and repository level. A release ticket says so.

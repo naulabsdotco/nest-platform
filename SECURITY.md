@@ -16,8 +16,9 @@ signed. The release workflow fails before the publish step when the signer or da
 when a review row names a test that no longer exists.
 
 Publishing is also human-owned: the `@naulabs` npm organisation must exist, the `NPM_TOKEN` repository
-secret must be set, and GitHub Actions must be enabled. Until then the release workflow is green and
-skips the publish step.
+secret must be set, and the release pull request must be opened with a fine-grained `RELEASE_TOKEN`
+(contents + pull-requests write) so CI runs on it. GitHub Actions must be enabled and allowed to create
+pull requests. Until then the release workflow is green and skips the publish step.
 
 The `publish` job runs in the `npm-publish` GitHub environment. Configure that environment with
 required reviewers so a human approves each deployment; the signer check runs before the approval, so
