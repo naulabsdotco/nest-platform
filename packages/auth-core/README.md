@@ -183,5 +183,12 @@ file; a write that fails midway removes the files that run created. **The consum
 — its forward file, rollback, verification and schema assertions; the package never runs a migration or
 connects as an elevated role.
 
+## Release gate
+
+`@naulabs/auth-core` publishes only after the review in
+[`docs/auth-core-security-review.md`](../../docs/auth-core-security-review.md) is signed. The release
+workflow fails when the signer or date is empty, or when a review row names a test that no longer
+exists.
+
 
 

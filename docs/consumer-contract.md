@@ -56,8 +56,52 @@ The envelope shape is the consumer's. The filter maps `ApplicationError` to its 
 `ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail. `@nestjs/common` is a
 peer dependency.
 
+## `@naulabs/auth-core`
+
+```ts
+class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule }
+class AuthService { /* login / refresh / logout; login returns tokens plus the resolved scope */ }
+const PUBLIC_KEY, AUTHENTICATED_KEY, PERMISSION_KEY: string;
+function Public(): MethodDecorator & ClassDecorator;
+function Authenticated(): MethodDecorator & ClassDecorator;
+function RequirePermission(id: string): MethodDecorator & ClassDecorator;
+function createJwtStrategy(opts: JwtStrategyOptions): Type<unknown>;
+class JwtAuthGuard implements CanActivate {}
+class ScopeGuard implements CanActivate {}
+class PermissionGuard implements CanActivate {}
+function assertEveryRouteGuarded(app: INestApplication): void;
+function createPasswordVerifier(opts?: { bcrypt?: boolean }): PasswordVerifier;
+function createTokenService(cfg: TokenConfig): TokenService;
+function emitAuthSql(opts: { destDir: string; utc14: string }): Promise<readonly string[]>;
+const AUTH_ERROR_CODES: { readonly [k: string]: string };
+```
+
+`forRoot` requires every seam below, provides the services, the strategy and the three guards, and
+registers the guards globally in the fixed order `JwtAuth → Scope → Permission`. The scope model, the
+error-code map, the envelope and the seed stay with the consumer.
+
+### Ports a consumer implements
+
+| Port | Contract |
+| --- | --- |
+| `AuthStore` | credentials by email, scopes by email, credential-hash replacement, refresh and reset rows, login-attempt audit |
+| `ScopeResolver<TScope extends AuthScope>` | `resolve(sub): Promise<TScope \| null>` |
+| `PermissionCatalogue` | `grantsFor(scope, role): Promise<ReadonlySet<string>>` |
+| `PasswordPolicy` | `validate(password): void \| Promise<void>` |
+| `Clock` | `now(): Date`, so expiry and reuse grace are testable |
+| `ResetLinkSink` | `send({ email, token }): Promise<void>` — the consumer delivers the link |
+
+`AuthScope` is `{ subject, scope, role, active }`; the meaning of `scope` and `role` is the consumer's.
+`AuthStore.markRefreshUsed` must compare-and-set on `used_at IS NULL AND revoked_at IS NULL`. The
+reference SQL is emitted with `emitAuthSql`; the consumer owns its forward migration, rollback and
+verification.
+
+`auth-core` publishes only past the signed review in
+[`docs/auth-core-security-review.md`](auth-core-security-review.md). It depends on `@naulabs/errors`;
+install both.
+
 ## Installing
 
-`pnpm add @naulabs/config @naulabs/logging @naulabs/errors`. Publishing runs only from `main`, with
-npm provenance; the `@naulabs` npm organisation and `NPM_TOKEN` secret are human-owned
-prerequisites — see [`SECURITY.md`](../SECURITY.md).
+`pnpm add @naulabs/config @naulabs/logging @naulabs/errors @naulabs/auth-core`. Publishing runs only
+from `main`, with npm provenance; the `@naulabs` npm organisation and `NPM_TOKEN` secret are
+human-owned prerequisites — see [`SECURITY.md`](../SECURITY.md).
