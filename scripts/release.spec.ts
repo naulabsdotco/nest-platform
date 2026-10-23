@@ -14,6 +14,7 @@ import {
   releaseDryRun,
   tarballIssues,
 } from './release-dry-run.mjs';
+import { publishArgs } from './release-publish.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const CHANGESET = join(ROOT, 'node_modules/@changesets/cli/bin.js');
@@ -135,5 +136,17 @@ describe('release dry run', () => {
     }
     expect(await workflow()).toContain('node scripts/pack-smoke.mjs');
     expect(WORKSPACE_PACKAGES).toHaveLength(4);
+  });
+
+  it('publishes each packed tarball with npm provenance', () => {
+    expect(publishArgs('/release/packages/naulabs-config-0.1.0.tgz')).toEqual([
+      'publish',
+      '/release/packages/naulabs-config-0.1.0.tgz',
+      '--provenance',
+      '--access',
+      'public',
+      '--tag',
+      'latest',
+    ]);
   });
 });

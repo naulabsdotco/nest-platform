@@ -68,16 +68,19 @@ jobs:
             git commit -m "chore(release): version packages"
             git push
           fi
-      - name: changeset status is clean after versioning
+      - name: pack the versioned packages and fail on a missing dist file
         if: env.NPM_TOKEN != ''
         run: node scripts/release-dry-run.mjs
-      - name: publish with provenance
+      - name: pack the versioned packages for publishing
+        if: env.NPM_TOKEN != ''
+        run: pnpm exec changeset pack --out-dir .release
+      # changesets publishes through pnpm, and pnpm 11 has no provenance support, so the packed
+      # tarballs are published with npm's --provenance instead.
+      - name: publish with npm provenance
         if: env.NPM_TOKEN != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # changesets does not forward npm flags, so --provenance is set through npm's config env.
-          NPM_CONFIG_PROVENANCE: 'true'
-        run: pnpm exec changeset publish --tag latest
+        run: node scripts/release-publish.mjs .release
       - name: publish skipped
         if: env.NPM_TOKEN == ''
         run: echo "::notice::NPM_TOKEN is not set. Enable Actions, create the @naulabs npm org and add the NPM_TOKEN secret, then re-run."
