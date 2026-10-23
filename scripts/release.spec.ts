@@ -161,6 +161,7 @@ describe('release workflow', () => {
     const config = await workflow();
 
     expect(config).toContain("needs.version.outputs['has-changesets'] == 'false'");
+    expect(config).toContain('node scripts/strip-empty-changesets.mjs');
     expect(config).toContain('environment: npm-publish');
     expect(config).toContain('pnpm exec changeset publish');
     expect(config).toContain("PNPM_CONFIG_PROVENANCE: 'true'");

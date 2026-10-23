@@ -63,6 +63,10 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Empty changesets only satisfy the pull-request gate; drop them so they neither open a release
+      # pull request nor block publishing.
+      - name: drop empty changesets
+        run: node scripts/strip-empty-changesets.mjs
       # A version commit never lands on main: changesets puts it on changeset-release/main and a PR,
       # so protected main only ever receives commits through pull requests.
       - name: open or update the version pull request
