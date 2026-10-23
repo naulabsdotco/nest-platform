@@ -1,18 +1,14 @@
 # Consumer contract
 
-The public surface of the published packages. Only the package root is public; any other path may
-change in a patch. Each package ships dual ESM + CJS — `exports` carries `import`, `require` and the
-`@naulabs/source` dev condition, each with a `dist` fallback — so `import` and `require` resolve the
-same surface. Pin exact versions.
+The public surface of the published packages; only the package root is public, anything else may change
+in a patch. Each ships dual ESM + CJS (`import`, `require`, `@naulabs/source`), so both resolve the same
+surface. Pin exact versions.
 
 ## `@naulabs/config`
 
 ```ts
 type EnvReader = Record<string, string | undefined>;
-class ConfigValidationError extends Error {
-  readonly code = 'CONFIG_INVALID';
-  readonly missing: readonly string[];
-}
+class ConfigValidationError extends Error { readonly code = 'CONFIG_INVALID'; readonly missing: readonly string[] }
 function loadEnv<T>(schema: z.ZodType<T>, raw?: EnvReader): T;
 const APP_CONFIG: InjectionToken<unknown>;
 function createConfigModule<T>(schema: z.ZodType<T>, opts?: { raw?: EnvReader }): DynamicModule;
@@ -27,13 +23,7 @@ missing keys and never echoes their values. `zod` is a peer dependency.
 const CORRELATION_HEADER = 'x-correlation-id';
 const DEFAULT_REDACT_PATHS: readonly string[];
 const LOG_FIELDS: readonly ['event', 'correlationId', 'outcome'];
-interface LoggerOptions {
-  service: string;
-  level?: string;
-  correlationHeader?: string;
-  redactExtra?: readonly string[];
-  contextFields?: readonly string[];
-}
+interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[] }
 function createLoggerModule(opts: LoggerOptions): DynamicModule;
 function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 ```
@@ -68,9 +58,6 @@ peer dependency.
 
 ## Installing
 
-```sh
-pnpm add @naulabs/config @naulabs/logging @naulabs/errors
-```
-
-Publishing runs only from `main`, with npm provenance. The `@naulabs` npm organisation and the
-`NPM_TOKEN` repository secret are human-owned prerequisites; see [`SECURITY.md`](../SECURITY.md).
+`pnpm add @naulabs/config @naulabs/logging @naulabs/errors`. Publishing runs only from `main`, with
+npm provenance; the `@naulabs` npm organisation and `NPM_TOKEN` secret are human-owned
+prerequisites — see [`SECURITY.md`](../SECURITY.md).
