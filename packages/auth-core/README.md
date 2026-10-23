@@ -3,6 +3,33 @@
 Consumer-agnostic authentication primitives. The package carries mechanism only: the scope model,
 the store, the permission catalogue and the password policy are injected through the ports below.
 
+## Quickstart
+
+```ts
+AuthCoreModule.forRoot({
+  store,
+  scopeResolver,
+  permissionCatalogue,
+  clock,
+  passwordPolicy,
+  resetLinkSink,
+  tokenConfig: { keys, activeKid, issuer, audience, accessTtlSeconds },
+  reuseGraceSeconds: 10,
+  refreshTtlSeconds: 2_592_000,
+  resetTtlMinutes: 20,
+});
+```
+
+`forRoot` requires every seam and refuses to boot with one missing or with a non-positive TTL or a
+negative reuse grace, mirroring the config schema. It provides `TokenService`, `PasswordVerifier`,
+`RefreshService`, `ResetService`, `AuthService`, the JWT strategy and the three guards. It does not
+register the guards globally: add them as `APP_GUARD` providers in the order `JwtAuthGuard` →
+`ScopeGuard` → `PermissionGuard` (see [Guard order](#guard-order)); the module exports the tokens those
+guards inject, so `useClass` resolves in the consumer's module. A consumer may override error codes
+with `codes: { AUTH_INVALID_TOKEN: '…' }`; the class stays the same and only the reported code changes.
+The reference migration is emitted with `emitAuthSql` and belongs to the consumer (see
+[Reference SQL](#reference-sql)).
+
 ## Implement these ports
 
 A consumer supplies the adapters; the package never compiles one in. The package depends on

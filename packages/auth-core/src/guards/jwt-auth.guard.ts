@@ -1,7 +1,8 @@
-import { Inject, Injectable, type ExecutionContext } from '@nestjs/common';
+import { Inject, Injectable, Optional, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthInvalidTokenError } from '../errors';
+import { AUTH_CODES, type AuthCodeMap } from '../di';
+import { AUTH_ERROR_CODES, AuthInvalidTokenError } from '../errors';
 import type { Principal } from '../ports/auth-store';
 import { resolveRoutePolicy, type RoutePolicyTarget } from './route-metadata';
 
@@ -11,7 +12,10 @@ export interface PrincipalRequest {
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
-  constructor(@Inject(Reflector) private readonly reflector: Reflector) {
+  constructor(
+    @Inject(Reflector) private readonly reflector: Reflector,
+    @Optional() @Inject(AUTH_CODES) private readonly codes: AuthCodeMap = AUTH_ERROR_CODES,
+  ) {
     super();
   }
 
@@ -29,7 +33,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   handleRequest<TPrincipal>(err: unknown, user: TPrincipal): TPrincipal {
-    if (err || !user) throw new AuthInvalidTokenError();
+    if (err || !user) throw new AuthInvalidTokenError(undefined, this.codes.AUTH_INVALID_TOKEN);
     return user;
   }
 }
