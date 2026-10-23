@@ -37,7 +37,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: write # changesets pushes the version commit and its tags
+      contents: write # pushes the version commit
       id-token: write # npm provenance
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
