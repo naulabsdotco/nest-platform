@@ -189,6 +189,3 @@ connects as an elevated role.
 [`docs/auth-core-security-review.md`](../../docs/auth-core-security-review.md) is signed. The release
 workflow fails when the signer or date is empty, or when a review row names a test that no longer
 exists.
-
-
-

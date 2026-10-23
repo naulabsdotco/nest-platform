@@ -71,7 +71,7 @@ The envelope shape is the consumer's. The filter maps `ApplicationError` to its 
 // ports — the consumer implements the adapters
 interface Clock { now(): Date }
 interface Principal { readonly sub: string }
-interface AuthScope { readonly subject: string; readonly scope: string; readonly role: string }
+interface AuthScope { readonly subject: string; readonly scope: string; readonly role: string; readonly active: boolean }
 interface StoredCredential { readonly subjectId: string; readonly algo: 'argon2id' | 'bcrypt'; readonly hash: string }
 interface RefreshRecord { readonly id: string; readonly familyId: string; readonly subjectId: string; readonly expiresAt: Date; readonly usedAt: Date | null; readonly revokedAt: Date | null }
 interface ResetRecord { readonly id: string; readonly subjectId: string; readonly expiresAt: Date; readonly consumedAt: Date | null }
