@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  AuthConfigError,
   AuthPasswordPolicyError,
   AuthResetTokenConsumedError,
   AuthResetTokenExpiredError,
@@ -133,6 +134,12 @@ class FailingSink implements ResetLinkSink {
   }
 }
 
+class MisconfiguredSink implements ResetLinkSink {
+  async send(): Promise<never> {
+    throw new AuthConfigError({ missing: 'MAIL_URL' });
+  }
+}
+
 const MIN_LENGTH = 12;
 
 const policy: PasswordPolicy = {
@@ -213,6 +220,18 @@ describe('ResetService.forgotPassword', () => {
     store.seed('known@example.com', 'subject-1');
 
     await expect(serviceOver(store, time, new FailingSink()).forgotPassword('known@example.com')).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.objectContaining({ event: 'auth.reset.link_failed', outcome: 'error' }));
+  });
+
+  it('swallows an AuthConfigError from a configured sink, so it is not an address oracle', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const time = clock();
+    const store = new ResetStore(time);
+    store.seed('known@example.com', 'subject-1');
+
+    await expect(
+      serviceOver(store, time, new MisconfiguredSink()).forgotPassword('known@example.com'),
+    ).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(expect.objectContaining({ event: 'auth.reset.link_failed', outcome: 'error' }));
   });
 });

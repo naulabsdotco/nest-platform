@@ -9,6 +9,8 @@ export const PASSWORD_VERIFIER = Symbol('AUTH_PASSWORD_VERIFIER');
 export const JWT_STRATEGY = Symbol('AUTH_JWT_STRATEGY');
 export const SCOPE_RESOLVER = Symbol('AUTH_SCOPE_RESOLVER');
 export const PERMISSION_CATALOGUE = Symbol('AUTH_PERMISSION_CATALOGUE');
+export const DEFERRED_SEAMS = Symbol('AUTH_DEFERRED_SEAMS');
+export const DEFERRED_SEAM = Symbol('AUTH_DEFERRED_SEAM');
 
 // `Record`, not `typeof AUTH_ERROR_CODES`: the literal type would reject an overridden value.
 export type AuthCodeMap = Record<AuthErrorCode, string>;

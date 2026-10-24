@@ -73,13 +73,15 @@ interface Clock { now(): Date }
 interface Principal { readonly sub: string }
 interface AuthScope { readonly subject: string; readonly scope: string; readonly role: string; readonly active: boolean }
 interface StoredCredential { readonly subjectId: string; readonly algo: 'argon2id' | 'bcrypt'; readonly hash: string }
-interface RefreshRecord { readonly id: string; readonly familyId: string; readonly subjectId: string; readonly expiresAt: Date; readonly usedAt: Date | null; readonly revokedAt: Date | null }
+interface RefreshRecord { readonly id: string; readonly familyId: string; readonly subjectId: string; readonly expiresAt: Date; readonly usedAt: Date | null; readonly revokedAt: Date | null; readonly scope?: string | null }
 interface ResetRecord { readonly id: string; readonly subjectId: string; readonly expiresAt: Date; readonly consumedAt: Date | null }
 interface LoginAttempt { readonly emailHash: string; readonly ip: string; readonly outcome: string; readonly reason?: string }
-interface AuthStore { /* findCredentialByEmail, findScopesByEmail, replaceCredentialHash, issueRefresh, findRefreshByHash, markRefreshUsed, revokeRefreshFamily, revokeRefreshForSubjects, issueResetToken, findResetToken, consumeResetToken, recordLoginAttempt */ }
+interface NewSubject { readonly email: string; readonly credential: { readonly algo: 'argon2id' | 'bcrypt'; readonly hash: string }; readonly scopes: readonly { readonly scope: string; readonly role: string; readonly active?: boolean }[] }
+interface AuthStore { /* findCredentialByEmail, findScopesByEmail, createSubject? (one transaction), replaceCredentialHash, issueRefresh, findRefreshByHash, markRefreshUsed, revokeRefreshFamily, revokeRefreshForSubjects, issueResetToken, findResetToken, consumeResetToken, recordLoginAttempt */ }
+interface UnitOfWork { transaction<T>(work: (tx: unknown) => Promise<T>): Promise<T> }   // optional reset-flow seam
 interface ScopeResolver<TScope extends AuthScope = AuthScope> { resolve(sub: string): Promise<TScope | null> }
 interface PermissionCatalogue { grantsFor(scope: string, role: string): Promise<ReadonlySet<string>> }
-interface PasswordPolicy { validate(password: string): void }
+interface PasswordPolicy { validate(password: string): void | Promise<void> }      // throws AuthPasswordPolicyError({ problems }) → 422
 // crypto and tokens
 interface PasswordVerifier { verify(cred: StoredCredential, presented: string): Promise<{ ok: boolean; rehash?: string }>; hash(password: string): Promise<string> }
 const ARGON2_OPTIONS: Readonly<{ type: 'argon2id'; memoryCost: 19456; timeCost: 2; parallelism: 1 }>;
@@ -99,8 +101,12 @@ class ScopeGuard implements CanActivate {}                                      
 class PermissionGuard implements CanActivate {}                                    // uses PermissionCatalogue; default deny
 function assertEveryRouteGuarded(app: INestApplication): void;                     // reflection guard for the consumer's test
 // module, SQL and codes
-class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule }       // provides services, strategy and guards
-function emitAuthSql(opts: { destDir: string; utc14: string }): Promise<readonly string[]>;
+interface AuthCoreOptions { /* the six adapters, tokenConfig, lifetimes, codes?, unitOfWork?, guardPipeline?, deferredSeams? */ }
+class AuthCoreModule {
+  static forRoot(opts: AuthCoreOptions): DynamicModule;                            // services, strategy and guards; slots fixed
+  static assertSeamsReady(app: INestApplicationContext): void;                     // lists any still-deferred adapter seam
+}
+function emitAuthSql(opts: { destDir: string; utc14: string; mode?: 'write' | 'check'; direction?: 'up' | 'down' | 'both'; verify?: boolean; tables?: object; columns?: object; loginAttempt?: object }): Promise<readonly string[]>;   // writes <utc14>_<name>.sql, never executes
 const AUTH_ERROR_CODES: { readonly [k: string]: string };                           // includes AUTH_REAUTH_FAILED
 ```
 

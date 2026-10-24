@@ -59,7 +59,7 @@ peer dependency.
 ## `@naulabsco/auth-core`
 
 ```ts
-class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule }
+class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule; static assertSeamsReady(app: INestApplicationContext): void }
 class AuthService { /* login / refresh / logout; login returns tokens plus the resolved scope */ }
 interface RefreshIssueInput { subjectId: string; scope?: string; userAgent?: string; ip?: string; familyId?: string }
 class RefreshService { issue(input: string | RefreshIssueInput): Promise<{ token: string; expiresAt: Date }> }
@@ -84,13 +84,16 @@ interface AuthSqlShape {
 const AUTH_ERROR_CODES: { readonly [k: string]: string };
 ```
 
-`forRoot` requires every seam below, provides the services, the strategy and the three guards, and
+`forRoot` requires every seam below unless `deferredSeams` names it, provides the services, the strategy and the three guards, and
 registers the guards globally in the fixed order `JwtAuth → Scope → Permission`. `guardPipeline` may
 add consumer guards at `afterAuth` (after the JWT guard, before the scope guard) and `afterScope`
 (after the scope guard, before the permission guard); no other slot exists. Each entry is a guard class
 (dependency-free, resolved in auth-core's injector) or a guard instance for one that needs a consumer
-provider; `@Public` routes run them without a principal or scope. The scope model, the
-error-code map, the envelope and the seed stay with the consumer.
+provider; `@Public` routes run them without a principal or scope. `deferredSeams` may name
+any adapter seam that is not ready yet: only those names become optional in the options type, and each
+missing one is injected as a proxy that throws `AuthConfigError({ missing })` on first use;
+`AuthCoreModule.assertSeamsReady(app)` lists the ones still deferred. `tokenConfig` and the lifetimes are
+never deferrable. The scope model, the error-code map, the envelope and the seed stay with the consumer.
 
 ### Ports a consumer implements
 

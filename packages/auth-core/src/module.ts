@@ -1,9 +1,11 @@
-import { Module, type CanActivate, type DynamicModule, type Provider, type Type } from '@nestjs/common';
+import { Module, type CanActivate, type DynamicModule, type INestApplicationContext, type Provider, type Type } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { createPasswordVerifier, type PasswordVerifier } from './crypto/password-verifier';
 import {
   AUTH_CODES,
   AUTH_OPTIONS,
+  DEFERRED_SEAM,
+  DEFERRED_SEAMS,
   JWT_STRATEGY,
   PASSWORD_VERIFIER,
   PERMISSION_CATALOGUE,
@@ -35,6 +37,23 @@ export interface GuardPipeline {
   readonly afterScope?: readonly GuardEntry[];
 }
 
+export type AdapterSeam =
+  | 'store'
+  | 'scopeResolver'
+  | 'permissionCatalogue'
+  | 'clock'
+  | 'passwordPolicy'
+  | 'resetLinkSink';
+
+const ADAPTER_SEAMS: readonly AdapterSeam[] = [
+  'store',
+  'scopeResolver',
+  'permissionCatalogue',
+  'clock',
+  'passwordPolicy',
+  'resetLinkSink',
+];
+
 export interface AuthCoreOptions {
   store: AuthStore;
   scopeResolver: ScopeResolver;
@@ -49,7 +68,17 @@ export interface AuthCoreOptions {
   codes?: Partial<AuthCodeMap>;
   unitOfWork?: UnitOfWork;
   guardPipeline?: GuardPipeline;
+  // Adapter seams that may be absent at boot; the rest are still required.
+  deferredSeams?: readonly AdapterSeam[];
 }
+
+// The adapter seams become optional only for the names in `deferredSeams`: each K is omitted from the
+// required shape and re-added as optional, so a different missing adapter still fails to compile.
+export type DeferredAuthCoreOptions<K extends AdapterSeam = AdapterSeam> = Omit<
+  AuthCoreOptions,
+  K | 'deferredSeams'
+> &
+  Partial<Pick<AuthCoreOptions, K>> & { readonly deferredSeams: readonly K[] };
 
 // TypeScript catches a missing seam in a TS consumer; this catches one from JS or a spread, and
 // refuses to boot rather than run with an undefined adapter.
@@ -110,7 +139,45 @@ const guardProvider = (guard: GuardEntry): Provider =>
   // not see the consumer's providers.
   typeof guard === 'function' ? { provide: APP_GUARD, useClass: guard } : { provide: APP_GUARD, useValue: guard };
 
-const providersFor = (opts: AuthCoreOptions): Provider[] => {
+const deferSeam = (name: AdapterSeam): never =>
+  new Proxy(
+    {},
+    {
+      get: (_target, property) => {
+        // The marker lets ResetService tell a deferred sink from a real one that raised a config error.
+        if (property === DEFERRED_SEAM) return true;
+        // A symbol probe is inspection, not use; only a named member is a seam call.
+        if (typeof property === 'symbol') return undefined;
+        return () => {
+          throw new AuthConfigError({ missing: name });
+        };
+      },
+    },
+  ) as never;
+
+// A deferred seam is only replaced when it is actually absent: a provided adapter always wins.
+const resolveOptions = <K extends AdapterSeam>(
+  opts: AuthCoreOptions | DeferredAuthCoreOptions<K>,
+): { resolved: AuthCoreOptions; deferred: AdapterSeam[] } => {
+  const declared = opts.deferredSeams ?? [];
+  if (!Array.isArray(declared)) throw new AuthConfigError({ invalid: 'deferredSeams' });
+  const seams = declared as readonly AdapterSeam[];
+  for (const seam of seams) {
+    if (!ADAPTER_SEAMS.includes(seam)) throw new AuthConfigError({ invalid: `deferredSeams.${String(seam)}` });
+  }
+
+  const resolved = { ...opts } as AuthCoreOptions;
+  const deferred: AdapterSeam[] = [];
+  for (const seam of seams) {
+    if (resolved[seam] !== undefined && resolved[seam] !== null) continue;
+    resolved[seam] = deferSeam(seam);
+    deferred.push(seam);
+  }
+  assertSeams(resolved);
+  return { resolved, deferred };
+};
+
+const providersFor = (opts: AuthCoreOptions, deferred: readonly AdapterSeam[]): Provider[] => {
   const strategy = createJwtStrategy({
     keys: opts.tokenConfig.keys,
     activeKid: opts.tokenConfig.activeKid,
@@ -120,6 +187,7 @@ const providersFor = (opts: AuthCoreOptions): Provider[] => {
 
   return [
     { provide: AUTH_OPTIONS, useValue: opts },
+    { provide: DEFERRED_SEAMS, useValue: [...deferred] },
     { provide: AUTH_CODES, useValue: resolveCodes(opts.codes) },
     { provide: SCOPE_RESOLVER, useValue: opts.scopeResolver },
     { provide: PERMISSION_CATALOGUE, useValue: opts.permissionCatalogue },
@@ -179,12 +247,14 @@ const providersFor = (opts: AuthCoreOptions): Provider[] => {
 
 @Module({})
 export class AuthCoreModule {
-  static forRoot(opts: AuthCoreOptions): DynamicModule {
-    assertSeams(opts);
+  static forRoot<K extends AdapterSeam = AdapterSeam>(
+    opts: AuthCoreOptions | DeferredAuthCoreOptions<K>,
+  ): DynamicModule {
+    const { resolved, deferred } = resolveOptions(opts);
 
     return {
       module: AuthCoreModule,
-      providers: providersFor(opts),
+      providers: providersFor(resolved, deferred),
       exports: [
         AUTH_CODES,
         SCOPE_RESOLVER,
@@ -200,5 +270,11 @@ export class AuthCoreModule {
         PermissionGuard,
       ],
     };
+  }
+
+  // An explicit gate for an e2e test: a deferred seam boots, but the test can refuse to start.
+  static assertSeamsReady(app: INestApplicationContext): void {
+    const deferred = app.get<AdapterSeam[]>(DEFERRED_SEAMS, { strict: false });
+    if (deferred.length > 0) throw new AuthConfigError({ deferred });
   }
 }
