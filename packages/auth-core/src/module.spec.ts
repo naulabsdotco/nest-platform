@@ -15,7 +15,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionGuard } from './guards/permission.guard';
 import { Public, RequirePermission } from './guards/route-metadata';
 import { ScopeGuard } from './guards/scope.guard';
-import { AuthCoreModule, type AuthCoreOptions } from './module';
+import { AuthCoreModule, type AdapterSeam, type AuthCoreOptions, type DeferredAuthCoreOptions } from './module';
 import { AuthService } from './tokens/auth.service';
 import { RefreshService } from './tokens/refresh.service';
 import { ResetService } from './tokens/reset.service';
@@ -386,6 +386,89 @@ describe('AuthCoreModule.forRoot', () => {
     expect(barrel).not.toHaveProperty('JWT_STRATEGY');
     expect(barrel).not.toHaveProperty('SCOPE_RESOLVER');
     expect(barrel).not.toHaveProperty('PERMISSION_CATALOGUE');
+    expect(barrel).not.toHaveProperty('DEFERRED_SEAMS');
     expect(barrel).not.toHaveProperty('keyByKid');
+  });
+});
+
+describe('AuthCoreModule deferred seams', () => {
+  const withoutSeams = (seams: readonly AdapterSeam[], overrides: Partial<AuthCoreOptions> = {}): AuthCoreOptions => {
+    const full = options(overrides);
+    for (const seam of seams) delete (full as Partial<AuthCoreOptions>)[seam];
+    return full;
+  };
+
+  const bootDeferred = async (
+    deferredSeams: readonly AdapterSeam[],
+    overrides: Partial<AuthCoreOptions> = {},
+  ): Promise<INestApplicationContext> => {
+    const opts: DeferredAuthCoreOptions = { ...withoutSeams(deferredSeams, overrides), deferredSeams };
+    const app = await NestFactory.createApplicationContext(AuthCoreModule.forRoot(opts), {
+      logger: false,
+      abortOnError: false,
+    });
+    apps.push(app);
+    return app;
+  };
+
+  it('boots with two deferred seams and lets a @Public route through', async () => {
+    const app = await bootDeferred(['passwordPolicy', 'resetLinkSink']);
+    const route = routeContext({ headers: {} }, OpenController, OpenController.prototype.open);
+
+    await expect(runGuards(app, route)).resolves.toBeUndefined();
+  });
+
+  it('calling a deferred seam fails with AuthConfigError naming the seam', async () => {
+    const app = await bootDeferred(['passwordPolicy']);
+
+    const error = await errorOf(() => app.get(ResetService).resetPassword('a-token', 'a-good-password'));
+
+    expect(error).toBeInstanceOf(AuthConfigError);
+    expect(error.criteria).toEqual({ missing: 'passwordPolicy' });
+  });
+
+  it('does not swallow a deferred sink behind the reset link failure handler', async () => {
+    const store = {
+      findCredentialByEmail: async () => ({ subjectId: 'subject-1', algo: 'argon2id', hash: 'stored' }),
+      issueResetToken: async () => ({
+        id: 'reset-1',
+        subjectId: 'subject-1',
+        expiresAt: new Date('2026-11-01T00:00:00.000Z'),
+        consumedAt: null,
+      }),
+    } as unknown as AuthCoreOptions['store'];
+    const app = await bootDeferred(['resetLinkSink'], { store });
+
+    const error = await errorOf(() => app.get(ResetService).forgotPassword('subject@example.com'));
+
+    expect(error).toBeInstanceOf(AuthConfigError);
+    expect(error.criteria).toEqual({ missing: 'resetLinkSink' });
+  });
+
+  it('assertSeamsReady lists every still-deferred seam', async () => {
+    const app = await bootDeferred(['passwordPolicy', 'resetLinkSink']);
+
+    const error = await errorOf(async () => AuthCoreModule.assertSeamsReady(app));
+
+    expect(error).toBeInstanceOf(AuthConfigError);
+    expect(error.criteria).toEqual({ deferred: ['passwordPolicy', 'resetLinkSink'] });
+  });
+
+  it('complete options boot unchanged and assertSeamsReady passes', async () => {
+    const app = await context();
+
+    expect(() => AuthCoreModule.assertSeamsReady(app)).not.toThrow();
+  });
+
+  it('a provided adapter wins over its deferral', async () => {
+    const app = await context({ deferredSeams: ['passwordPolicy'] });
+
+    expect(() => AuthCoreModule.assertSeamsReady(app)).not.toThrow();
+  });
+
+  it('rejects a deferred name that is not an adapter seam', () => {
+    expect(() =>
+      AuthCoreModule.forRoot(options({ deferredSeams: ['tokenConfig' as AdapterSeam] })),
+    ).toThrow(AuthConfigError);
   });
 });

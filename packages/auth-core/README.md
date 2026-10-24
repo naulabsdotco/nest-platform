@@ -27,7 +27,29 @@ registers the three guards globally in the order `JwtAuthGuard` → `ScopeGuard`
 [Guard order](#guard-order)); a consumer does not wire them, so it cannot omit or misorder them. A
 consumer may override error codes with `codes: { AUTH_INVALID_TOKEN: '…' }`; the class stays the same
 and only the reported code changes. The reference migration is emitted with `emitAuthSql` and belongs
-to the consumer (see [Reference SQL](#reference-sql)).
+to the consumer (see [Reference SQL](#reference-sql)). A partial environment can defer an adapter seam
+instead of stubbing it (see [Deferred seams](#deferred-seams)).
+
+## Deferred seams
+
+An app can boot before every adapter exists. Name the missing ones in `deferredSeams`; only the six
+adapter seams are accepted, and `tokenConfig` and the lifetimes are always required.
+
+```ts
+AuthCoreModule.forRoot({ ...partial, deferredSeams: ['passwordPolicy', 'resetLinkSink'] });
+```
+
+Each deferred seam is a proxy whose members throw `AuthConfigError({ missing: 'passwordPolicy' })` on
+first use, so a route that needs it fails closed with a named error instead of `undefined is not a
+function`; a `@Public` route boots and works because it reads no seam. A seam that is both provided and
+listed is used, not deferred. `deferredSeams` naming anything else fails boot.
+
+`AuthCoreModule.assertSeamsReady(app)` is an optional, explicit gate for an e2e test: it throws
+`AuthConfigError({ deferred: ['passwordPolicy', 'resetLinkSink'] })` listing every seam still deferred,
+and passes unchanged when the options are complete. That is the full-double composition: the quickstart
+above with all six adapters, then `assertSeamsReady` before the suite runs. The reset link's send
+failure handler re-throws `AuthConfigError`, because an unconfigured adapter is not a delivery failure
+to swallow.
 
 ## Implement these ports
 

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Logger } from '@nestjs/common';
 import type { PasswordVerifier } from '../crypto/password-verifier';
-import { AuthResetTokenConsumedError, AuthResetTokenExpiredError, AuthResetTokenInvalidError } from '../errors';
+import { AuthConfigError, AuthResetTokenConsumedError, AuthResetTokenExpiredError, AuthResetTokenInvalidError } from '../errors';
 import type { AuthStore } from '../ports/auth-store';
 import type { Clock } from '../ports/clock';
 import type { PasswordPolicy } from '../ports/password-policy';
@@ -45,7 +45,10 @@ export class ResetService {
 
     try {
       await this.opts.sink.send({ email, token });
-    } catch {
+    } catch (error) {
+      // A deferred seam is a configuration failure, not a delivery failure; swallowing it would call
+      // an unconfigured app healthy and hide which seam is missing.
+      if (error instanceof AuthConfigError) throw error;
       // Returning a failure here would tell the caller the address exists; the send is the consumer's to retry.
       this.logger.warn({ event: 'auth.reset.link_failed', outcome: 'error' });
     }
