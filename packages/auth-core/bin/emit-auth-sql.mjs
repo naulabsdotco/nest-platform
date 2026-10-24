@@ -179,10 +179,12 @@ const existsStatement = (table, column) =>
     RAISE EXCEPTION 'verify: ${table}.${column} is missing';
   END IF;`;
 
-// Plain SQL, not pgTap: the consumer's migration gate runs it against the applied schema.
+// Plain SQL, not pgTap: the consumer's migration gate runs it against the applied schema. Both the
+// table and column checks resolve against `current_schema()`, so a non-default search_path agrees
+// with itself.
 const verifySql = (names, dropped, partitioned) => {
   const statements = DOWN_ORDER.map(
-    (key) => `  IF to_regclass('${names[key]}') IS NULL THEN
+    (key) => `  IF to_regclass(quote_ident(current_schema()) || '.${names[key]}') IS NULL THEN
     RAISE EXCEPTION 'verify: table ${names[key]} is missing';
   END IF;`,
   );
@@ -291,9 +293,6 @@ async function run() {
   const destDir = valueOf('--dest');
   const utc14 = valueOf('--utc14');
   const configPath = valueOf('--config');
-  const mode = args.includes('--check') ? 'check' : 'write';
-  const direction = valueOf('--direction');
-  const verify = args.includes('--verify');
 
   if (destDir === undefined || utc14 === undefined) {
     console.error(
@@ -303,7 +302,17 @@ async function run() {
     return;
   }
   const config = configPath === undefined ? {} : JSON.parse(await readFile(configPath, 'utf8'));
-  const emission = await emitAuthSql({ destDir, utc14, ...config, mode, direction, verify });
+  if (typeof config !== 'object' || config === null || Array.isArray(config)) {
+    throw new Error('--config must contain a JSON object');
+  }
+
+  // An explicit flag wins; otherwise the config file supplies the mode, direction and verify flag.
+  const mode = args.includes('--check') ? 'check' : (config.mode ?? 'write');
+  const direction = valueOf('--direction') ?? config.direction;
+  const verify = args.includes('--verify') ? true : (config.verify ?? false);
+  if (verify !== true && verify !== false) throw new Error('verify must be a boolean');
+
+  const emission = await emitAuthSql({ ...config, destDir, utc14, mode, direction, verify });
 
   if (mode === 'check') {
     for (const { path, status } of emission) console.log(`${status} ${path}`);

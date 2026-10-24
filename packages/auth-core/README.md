@@ -185,7 +185,9 @@ runs a migration or connects as an elevated role.
 
 `direction: 'down'` adds one `<utc14>_<name>.down.sql` per table, a `DROP TABLE IF EXISTS` ordered so
 the child tables go first; `'both'` emits the up set, then the verify file, then the down set, so the
-returned order can be applied as-is. `verify: true` adds `<utc14>_verify.sql`, a `DO` block that
+returned order can be applied as-is. **Apply the returned array**, not a filename sort: every file
+shares the `utc14` prefix, and neither the foreign-key order nor the up/verify/down order is encoded in
+the name. `verify: true` adds `<utc14>_verify.sql`, a `DO` block that
 raises when a table, a hashed column or the partition is missing, or a disabled column is present.
 `verify` with a down-only direction is refused. `mode: 'check'` writes nothing and returns
 `{ path, status: 'missing' | 'differs' | 'in-sync' }` per planned file; `--check` prints that line per
@@ -225,7 +227,8 @@ await emitAuthSql({
 });
 ```
 
-`--config` takes the same `tables`, `columns` and `loginAttempt` object from a JSON file.
+`--config` takes the same `tables`, `columns` and `loginAttempt` object from a JSON file, and may also
+carry `mode`, `direction` and `verify`; an explicit `--check`, `--direction` or `--verify` wins.
 
 ## Release gate
 

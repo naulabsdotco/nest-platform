@@ -355,8 +355,9 @@ describe('emitAuthSql down and verify', () => {
     const verify = written.find((path) => basename(path) === `${UTC14}_verify.sql`);
     expect(verify).toBeDefined();
     const sql = await readFile(verify as string, 'utf8');
-    expect(sql).toMatch(/to_regclass\('accounts'\)/);
-    expect(sql).toMatch(/to_regclass\('subject_credential'\)/);
+    expect(sql).toMatch(/to_regclass\(quote_ident\(current_schema\(\)\) \|\| '\.accounts'\)/);
+    expect(sql).toMatch(/to_regclass\(quote_ident\(current_schema\(\)\) \|\| '\.subject_credential'\)/);
+    expect(sql).toMatch(/table_schema = current_schema\(\)/);
   });
 
   it('emits verify before the down set, so the returned order is safe to apply as-is', async () => {
@@ -419,5 +420,33 @@ describe('emit-auth-sql --check', () => {
     );
 
     expect((failure as { stdout?: string }).stdout).toContain(`missing ${join(destDir, `${UTC14}_subject.sql`)}`);
+  });
+
+  it('takes direction and verify from the config file when no flag overrides them', async () => {
+    const destDir = await tempDir();
+    const configPath = join(await tempDir(), 'emit-config.json');
+    await writeFile(configPath, JSON.stringify({ direction: 'both', verify: true }));
+
+    const { stdout } = await run(process.execPath, [bin, '--dest', destDir, '--utc14', UTC14, '--config', configPath]);
+
+    expect(stdout).toContain(`${UTC14}_subject.down.sql`);
+    expect(stdout).toContain(`${UTC14}_verify.sql`);
+    expect(await readdir(destDir)).toHaveLength(11);
+  });
+
+  it('lets an explicit CLI direction override the config file', async () => {
+    const destDir = await tempDir();
+    const configPath = join(await tempDir(), 'emit-config.json');
+    await writeFile(configPath, JSON.stringify({ direction: 'both' }));
+
+    await run(process.execPath, [bin, '--dest', destDir, '--utc14', UTC14, '--config', configPath, '--direction', 'up']);
+
+    expect((await readdir(destDir)).sort()).toEqual([
+      `${UTC14}_login_attempt.sql`,
+      `${UTC14}_password_reset_token.sql`,
+      `${UTC14}_refresh_token.sql`,
+      `${UTC14}_subject.sql`,
+      `${UTC14}_subject_credential.sql`,
+    ]);
   });
 });
