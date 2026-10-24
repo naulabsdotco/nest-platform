@@ -11,6 +11,7 @@ export const AUTH_ERROR_CODES = {
   AUTH_RESET_TOKEN_EXPIRED: 'AUTH_RESET_TOKEN_EXPIRED',
   AUTH_RESET_TOKEN_CONSUMED: 'AUTH_RESET_TOKEN_CONSUMED',
   AUTH_PASSWORD_POLICY: 'AUTH_PASSWORD_POLICY',
+  AUTH_SUBJECT_CREATION_FAILED: 'AUTH_SUBJECT_CREATION_FAILED',
   AUTH_REAUTH_FAILED: 'AUTH_REAUTH_FAILED',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
 } as const;
@@ -30,6 +31,7 @@ export const AUTH_ERROR_STATUS: StatusMap<AuthErrorCode> = {
   AUTH_RESET_TOKEN_EXPIRED: 400,
   AUTH_RESET_TOKEN_CONSUMED: 409,
   AUTH_PASSWORD_POLICY: 422,
+  AUTH_SUBJECT_CREATION_FAILED: 409,
   AUTH_REAUTH_FAILED: 401,
 };
 
@@ -99,6 +101,13 @@ export class AuthResetTokenConsumedError extends AuthError {
 export class AuthPasswordPolicyError extends AuthError {
   constructor(criteria?: unknown, code?: string) {
     super(AUTH_ERROR_CODES.AUTH_PASSWORD_POLICY, criteria, code);
+  }
+}
+
+// One class for both refusals a creation can meet: a duplicate email and an unknown scope.
+export class AuthSubjectCreationFailedError extends AuthError {
+  constructor(criteria?: unknown, code?: string) {
+    super(AUTH_ERROR_CODES.AUTH_SUBJECT_CREATION_FAILED, criteria, code);
   }
 }
 

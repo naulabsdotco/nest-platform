@@ -55,9 +55,27 @@ export interface ResetInput {
   readonly requestedIp?: string;
 }
 
+export interface NewSubjectScope {
+  readonly scope: string;
+  readonly role: string;
+  // Defaults to true; the adapter writes the row the consumer's scope model needs.
+  readonly active?: boolean;
+}
+
+export interface NewSubject {
+  readonly email: string;
+  readonly credential: { readonly algo: 'argon2id' | 'bcrypt'; readonly hash: string };
+  readonly scopes: readonly NewSubjectScope[];
+}
+
 export interface AuthStore {
   findCredentialByEmail(email: string): Promise<StoredCredential | null>;
   findScopesByEmail(email: string): Promise<readonly AuthScope[]>;
+  // Optional so every existing adapter still compiles: implement it when an invite, admin or seed
+  // flow creates subjects, and write the subject, credential and scope rows in one transaction.
+  // The package never calls it; a duplicate email or an unknown scope is refused with
+  // AuthSubjectCreationFailedError.
+  createSubject?(input: NewSubject): Promise<{ subjectId: string }>;
   replaceCredentialHash(subjectId: string, hash: string): Promise<void>;
   issueRefresh(input: RefreshInput): Promise<RefreshRecord>;
   findRefreshByHash(tokenHash: string): Promise<RefreshRecord | null>;
