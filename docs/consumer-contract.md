@@ -84,7 +84,7 @@ interface AuthSqlShape {
 const AUTH_ERROR_CODES: { readonly [k: string]: string };
 ```
 
-`forRoot` requires every seam below, provides the services, the strategy and the three guards, and
+`forRoot` requires every seam below unless `deferredSeams` names it, provides the services, the strategy and the three guards, and
 registers the guards globally in the fixed order `JwtAuth → Scope → Permission`. `guardPipeline` may
 add consumer guards at `afterAuth` (after the JWT guard, before the scope guard) and `afterScope`
 (after the scope guard, before the permission guard); no other slot exists. Each entry is a guard class

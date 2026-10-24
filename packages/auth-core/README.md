@@ -20,8 +20,9 @@ AuthCoreModule.forRoot({
 });
 ```
 
-`forRoot` requires every seam and refuses to boot with one missing or with a non-positive TTL or a
-negative reuse grace, mirroring the config schema. It provides `TokenService`, `PasswordVerifier`,
+`forRoot` requires every seam unless it is named in `deferredSeams` (see [Deferred seams](#deferred-seams)),
+and refuses to boot with one missing or with a non-positive TTL or negative reuse grace, mirroring the
+config schema. It provides `TokenService`, `PasswordVerifier`,
 `RefreshService`, `ResetService`, `AuthService`, the JWT strategy and the three guards, and it
 registers the three guards globally in the order `JwtAuthGuard` → `ScopeGuard` → `PermissionGuard` (see
 [Guard order](#guard-order)); a consumer does not wire them, so it cannot omit or misorder them. A
