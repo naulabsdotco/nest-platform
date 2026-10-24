@@ -129,12 +129,13 @@ describe('reference SQL', () => {
         columns: { credential: { lockedUntil: false } },
       });
       const ups = written.filter((path) => !path.endsWith('.down.sql') && !path.endsWith('_verify.sql'));
-      const downs = written.filter((path) => path.endsWith('.down.sql'));
       const verify = written.filter((path) => path.endsWith('_verify.sql'));
 
-      for (const file of ups) await client.query(await readFile(file, 'utf8'));
-      await client.query(await readFile(verify[0] as string, 'utf8'));
-      for (const file of downs) await client.query(await readFile(file, 'utf8'));
+      // Apply the returned order as a consumer would: up, then verify, then down.
+      for (const file of written) await client.query(await readFile(file, 'utf8'));
+
+      expect(ups).toHaveLength(5);
+      expect(verify).toHaveLength(1);
 
       const { rows } = await client.query<{ table_name: string }>(
         "select table_name from information_schema.tables where table_schema = 'public' and table_name like 'member%'",

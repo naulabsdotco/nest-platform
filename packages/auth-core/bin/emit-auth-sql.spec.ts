@@ -359,6 +359,17 @@ describe('emitAuthSql down and verify', () => {
     expect(sql).toMatch(/to_regclass\('subject_credential'\)/);
   });
 
+  it('emits verify before the down set, so the returned order is safe to apply as-is', async () => {
+    const destDir = await tempDir();
+
+    const written = await emitAuthSql({ destDir, utc14: UTC14, direction: 'both', verify: true });
+
+    expect(written).toHaveLength(11);
+    expect(written.findIndex((path) => path.endsWith('_verify.sql'))).toBeLessThan(
+      written.findIndex((path) => path.endsWith('.down.sql')),
+    );
+  });
+
   it('refuses verify with a down-only emission', async () => {
     const destDir = await tempDir();
 

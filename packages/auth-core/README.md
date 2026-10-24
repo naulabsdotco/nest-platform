@@ -184,10 +184,10 @@ the migration** — its forward file, rollback, verification and schema assertio
 runs a migration or connects as an elevated role.
 
 `direction: 'down'` adds one `<utc14>_<name>.down.sql` per table, a `DROP TABLE IF EXISTS` ordered so
-the child tables go first; `'both'` emits the up set followed by the down set. `verify: true` adds
-`<utc14>_verify.sql`, a `DO` block that raises when a table, a hashed column or the partition is
-missing, or a disabled column is present — apply it after the up set. `verify` with a down-only
-direction is refused. `mode: 'check'` writes nothing and returns
+the child tables go first; `'both'` emits the up set, then the verify file, then the down set, so the
+returned order can be applied as-is. `verify: true` adds `<utc14>_verify.sql`, a `DO` block that
+raises when a table, a hashed column or the partition is missing, or a disabled column is present.
+`verify` with a down-only direction is refused. `mode: 'check'` writes nothing and returns
 `{ path, status: 'missing' | 'differs' | 'in-sync' }` per planned file; `--check` prints that line per
 file and exits 1 when any file is not in sync, 0 otherwise. Write mode keeps the overwrite refusal.
 

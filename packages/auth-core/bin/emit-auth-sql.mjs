@@ -217,14 +217,6 @@ const plan = async ({ destDir, utc14, direction = 'up', verify = false, ...shape
   const ups = await upFiles(shape);
   const files = [];
   if (direction !== 'down') files.push(...ups);
-  if (direction !== 'up') {
-    files.push(
-      ...[...ups].reverse().map(({ name, table }) => ({
-        name: `${name.replace(/\.sql$/, '')}.down.sql`,
-        contents: `DROP TABLE IF EXISTS ${names[table]};\n`,
-      })),
-    );
-  }
   if (verify) {
     const dropped = Object.entries(CREDENTIAL_COLUMNS)
       .filter(([key]) => shape.columns?.credential?.[key] === false)
@@ -233,6 +225,14 @@ const plan = async ({ destDir, utc14, direction = 'up', verify = false, ...shape
       name: 'verify.sql',
       contents: verifySql(names, dropped, shape.loginAttempt?.partitioned !== undefined),
     });
+  }
+  if (direction !== 'up') {
+    files.push(
+      ...[...ups].reverse().map(({ name, table }) => ({
+        name: `${name.replace(/\.sql$/, '')}.down.sql`,
+        contents: `DROP TABLE IF EXISTS ${names[table]};\n`,
+      })),
+    );
   }
   return files.map(({ name, contents }) => ({ target: join(destDir, `${utc14}_${name}`), contents }));
 };
