@@ -103,5 +103,6 @@ install both.
 ## Installing
 
 `pnpm add @naulabsco/config @naulabsco/logging @naulabsco/errors @naulabsco/auth-core`. Publishing runs only
-from `main`, with npm provenance; the `@naulabsco` npm organisation and `NPM_TOKEN` secret are
-human-owned prerequisites — see [`SECURITY.md`](../SECURITY.md).
+from `main`, with npm provenance through trusted publishing (GitHub OIDC); the `@naulabsco` npm
+organisation and a trusted publisher for each package are human-owned prerequisites — see
+[`SECURITY.md`](../SECURITY.md).

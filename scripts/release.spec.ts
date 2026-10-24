@@ -165,6 +165,14 @@ describe('release workflow', () => {
     expect(config).toContain('environment: npm-publish');
     expect(config).toContain('pnpm exec changeset publish');
     expect(config).toContain("PNPM_CONFIG_PROVENANCE: 'true'");
-    expect(config).toContain("if: env.NPM_TOKEN != ''");
+  });
+
+  it('publishes with npm trusted publishing instead of a stored token', async () => {
+    const config = await workflow();
+
+    expect(config).not.toContain('NPM_TOKEN');
+    expect(config).not.toContain('NODE_AUTH_TOKEN');
+    expect(config.match(/^ {6}id-token: write\b.*$/gm)).toHaveLength(1);
+    expect(config).toContain('/-/npm/v1/oidc/token/exchange/package/');
   });
 });

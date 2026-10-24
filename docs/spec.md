@@ -175,10 +175,14 @@ consumers pin exact versions. `main` is protected and only takes pull requests: 
 the release workflow opens and updates a `chore(release): version packages` pull request from
 `changeset-release/main`, and no version commit is pushed to `main`. Merging that pull request leaves no
 pending changesets, so the publish job builds and publishes the four packages with `changeset publish`
-to public npm with provenance. Publishing targets public npm; the `@naulabsco` npm organisation, an
-`NPM_TOKEN` repository secret and a fine-grained `RELEASE_TOKEN` (contents + pull-requests write, so CI
+to public npm with provenance. Publishing uses npm trusted publishing: GitHub OIDC (`id-token: write`)
+in the `npm-publish` environment, no stored token, and the job fails before publishing when a package
+has no trusted publisher. The `@naulabsco` npm organisation, a trusted publisher for each of the four
+packages (org `naulabsdotco`, repo `nest-platform`, workflow `release.yml`, environment `npm-publish`,
+allowed action `npm publish`) and a fine-grained `RELEASE_TOKEN` (contents + pull-requests write, so CI
 runs on the release pull request) are human-owned prerequisites for the first publish; Actions must
-also be allowed to create pull requests at organisation and repository level. CI packs the four
+also be allowed to create pull requests at organisation and repository level. The `NPM_TOKEN` secret and
+token are retired. CI packs the four
 packages and installs the tarballs into a small fixture app that boots, so a missing `dist` file, a
 missing export condition or a stripped import fails CI rather than a consumer.
 ## 9. Success criteria
@@ -201,5 +205,5 @@ missing export condition or a stripped import fails CI rather than a consumer.
   no vendor-style naming anywhere.
 - **Guards:** `forRoot` registers them as global guards, ordered `JwtAuth → Scope → Permission`.
 - **Tests:** Vitest; SQL-apply uses testcontainers; `login` returns tokens plus the resolved scope; the
-  consumer contract stays in-repo. A human creates the `@naulabsco` npm org and sets `NPM_TOKEN` before
-  the first publish.
+  consumer contract stays in-repo. A human creates the `@naulabsco` npm org and configures a trusted
+  publisher per package before the first publish.

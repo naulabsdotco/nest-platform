@@ -15,10 +15,11 @@ only after the review in [`docs/auth-core-security-review.md`](docs/auth-core-se
 signed. The release workflow fails before the publish step when the signer or date field is empty or
 when a review row names a test that no longer exists.
 
-Publishing is also human-owned: the `@naulabsco` npm organisation must exist, the `NPM_TOKEN` repository
-secret must be set, and the release pull request must be opened with a fine-grained `RELEASE_TOKEN`
+Publishing is also human-owned: the `@naulabsco` npm organisation must exist, each package needs a
+trusted publisher for this repository's `release.yml` workflow in the `npm-publish` environment (no npm
+token is stored), and the release pull request must be opened with a fine-grained `RELEASE_TOKEN`
 (contents + pull-requests write) so CI runs on it. GitHub Actions must be enabled and allowed to create
-pull requests. Until then the release workflow is green and skips the publish step.
+pull requests. Until trusted publishers are configured the publish job fails before building.
 
 The `publish` job runs in the `npm-publish` GitHub environment. Configure that environment with
 required reviewers so a human approves each deployment; the signer check runs before the approval, so
