@@ -27,9 +27,11 @@ import { RefreshService } from './tokens/refresh.service';
 import { ResetService, type ResetLinkSink } from './tokens/reset.service';
 import { createTokenService, type TokenConfig, type TokenService } from './tokens/token.service';
 
+export type GuardEntry = Type<CanActivate> | CanActivate;
+
 export interface GuardPipeline {
-  readonly afterAuth?: readonly Type<CanActivate>[];
-  readonly afterScope?: readonly Type<CanActivate>[];
+  readonly afterAuth?: readonly GuardEntry[];
+  readonly afterScope?: readonly GuardEntry[];
 }
 
 export interface AuthCoreOptions {
@@ -79,9 +81,11 @@ const assertPipeline = (pipeline?: GuardPipeline): void => {
   }
   for (const slot of PIPELINE_SLOTS) {
     const guards = pipeline[slot];
-    if (guards !== undefined && (!Array.isArray(guards) || guards.some((guard) => typeof guard !== 'function'))) {
-      throw new AuthConfigError({ invalid: `guardPipeline.${slot}` });
-    }
+    const valid =
+      guards === undefined ||
+      (Array.isArray(guards) &&
+        guards.every((guard) => typeof guard === 'function' || (typeof guard === 'object' && guard !== null)));
+    if (!valid) throw new AuthConfigError({ invalid: `guardPipeline.${slot}` });
   }
 };
 
@@ -98,6 +102,11 @@ const assertSeams = (opts: AuthCoreOptions): void => {
   }
   assertPipeline(opts.guardPipeline);
 };
+
+const guardProvider = (guard: GuardEntry): Provider =>
+  // An instance is bound as-is: a class here would be resolved in this module's injector, which does
+  // not see the consumer's providers.
+  typeof guard === 'function' ? { provide: APP_GUARD, useClass: guard } : { provide: APP_GUARD, useValue: guard };
 
 const providersFor = (opts: AuthCoreOptions): Provider[] => {
   const strategy = createJwtStrategy({
@@ -158,9 +167,9 @@ const providersFor = (opts: AuthCoreOptions): Provider[] => {
     PermissionGuard,
     // Global registration in this order is the mechanism: a consumer cannot omit or misorder them.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    ...(opts.guardPipeline?.afterAuth ?? []).map((guard) => ({ provide: APP_GUARD, useClass: guard })),
+    ...(opts.guardPipeline?.afterAuth ?? []).map(guardProvider),
     { provide: APP_GUARD, useClass: ScopeGuard },
-    ...(opts.guardPipeline?.afterScope ?? []).map((guard) => ({ provide: APP_GUARD, useClass: guard })),
+    ...(opts.guardPipeline?.afterScope ?? []).map(guardProvider),
     { provide: APP_GUARD, useClass: PermissionGuard },
   ];
 };

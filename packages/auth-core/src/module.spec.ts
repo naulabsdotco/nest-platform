@@ -95,6 +95,15 @@ class SecondInsertedGuard implements CanActivate {
   }
 }
 
+class DependentGuard implements CanActivate {
+  constructor(private readonly seen: string[]) {}
+
+  canActivate(): boolean {
+    this.seen.push('dependent');
+    return true;
+  }
+}
+
 const inspected: string[] = [];
 
 interface Request {
@@ -163,6 +172,17 @@ describe('AuthCoreModule.forRoot', () => {
       'SecondInsertedGuard',
       'PermissionGuard',
     ]);
+  });
+
+  it('accepts a guard instance so it can use consumer-provided dependencies', async () => {
+    const seen: string[] = [];
+    const app = await context({ guardPipeline: { afterAuth: [new DependentGuard(seen)] } });
+
+    expect(guardsOf(app).map((guard) => guard.constructor.name)).toContain('DependentGuard');
+    await expect(
+      runGuards(app, routeContext({ headers: {} }, OpenController, OpenController.prototype.open)),
+    ).resolves.toBeUndefined();
+    expect(seen).toEqual(['dependent']);
   });
 
   it('an afterAuth guard runs after the JWT guard and before the scope guard', async () => {

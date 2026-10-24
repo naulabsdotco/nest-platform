@@ -90,11 +90,15 @@ that carries none of the keys: default-deny made checkable by a consumer's own t
 `forRoot` registers the guards in the order `JwtAuthGuard` → `ScopeGuard` → `PermissionGuard`; the
 order is mechanism, not preference, because each writes what the next reads, and a consumer cannot
 change it. `guardPipeline` inserts consumer guards at the two fixed slots that make sense:
-`afterAuth` runs after the JWT guard (so `request.principal` is set) and before the scope guard;
-`afterScope` runs after the scope guard (so `request.scope` is set) and before the permission guard.
-Both are optional and empty by default, binding stays global, and there is no slot before
-`JwtAuthGuard` or after `PermissionGuard`, so a rate limiter in `afterAuth` still sees a request the
-permission guard will deny. An unknown slot or a non-array value fails boot with `AuthConfigError`.
+`afterAuth` runs after the JWT guard (on an authenticated route `request.principal` is set) and before
+the scope guard; `afterScope` runs after the scope guard (so `request.scope` is set) and before the
+permission guard. Both are optional and empty by default, binding stays global, and there is no slot
+before `JwtAuthGuard` or after `PermissionGuard`, so a rate limiter in `afterAuth` still sees a request
+the permission guard will deny. A listed entry is either a guard class or a guard instance: a class is
+resolved in auth-core's injector, so it must be dependency-free, and a guard that needs a consumer
+provider must be passed as an instance. An unknown slot, a non-array value or an entry that is neither a
+class nor an object fails boot with `AuthConfigError`. A `@Public` route still runs an inserted guard,
+but no principal or scope exists there, so a guard that reads `request.principal` must skip it.
 `JwtAuthGuard` takes the bearer
 token from the `Authorization` header only, verifies it against the pinned `algorithms`, `issuer` and
 `audience` with `ignoreExpiration: false`, requires `typ: 'access'`, and writes `{ sub }` to
