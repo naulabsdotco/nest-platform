@@ -30,6 +30,22 @@ const CREDENTIAL_COLUMNS = {
   lockedUntil: 'locked_until',
 };
 
+const MAX_IDENTIFIER = 63;
+
+const validateColumns = (columns) => {
+  if (columns === undefined) return;
+  for (const key of Object.keys(columns)) {
+    if (key !== 'credential') throw new Error(`unknown columns option ${JSON.stringify(key)}`);
+  }
+  if (columns.credential === undefined) return;
+  for (const [key, value] of Object.entries(columns.credential)) {
+    if (CREDENTIAL_COLUMNS[key] === undefined) {
+      throw new Error(`unknown columns.credential option ${JSON.stringify(key)}`);
+    }
+    if (typeof value !== 'boolean') throw new Error(`columns.credential.${key} must be a boolean`);
+  }
+};
+
 // Each reference file owns one table; a rename is applied to every file because the other files
 // reference it (the foreign key and the index names carry the table name).
 const FILE_TABLE = {
@@ -67,14 +83,36 @@ const renameMap = (tables = {}) => {
   return new Map(Object.entries(names));
 };
 
-// Longest key first so `subject_credential` wins over `subject`. A renamed table also renames the
-// columns and indexes that carry it as a prefix (`subject_id`, `subject_credential_pkey`).
+// A table name is replaced wherever it appears as a whole underscore segment, so an index that
+// embeds it (`refresh_token_live_subject_idx`) follows the map as well as a prefix (`subject_id`).
+// Identities are present for every unrenamed table, so `subject_credential` is matched whole and its
+// `subject` is not rewritten by a rename of `subject` alone.
 const renameIdentifiers = (sql, renames) => {
   const keys = [...renames.keys()].sort((a, b) => b.length - a.length);
-  if (keys.length === 0) return sql;
   return sql.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (token) => {
-    const key = keys.find((candidate) => token === candidate || token.startsWith(`${candidate}_`));
-    return key === undefined ? token : `${renames.get(key)}${token.slice(key.length)}`;
+    let renamed = '';
+    let index = 0;
+    while (index < token.length) {
+      const atBoundary = index === 0 || token[index - 1] === '_';
+      const key = atBoundary
+        ? keys.find(
+            (candidate) =>
+              token.startsWith(candidate, index) &&
+              (index + candidate.length === token.length || token[index + candidate.length] === '_'),
+          )
+        : undefined;
+      if (key === undefined) {
+        renamed += token[index];
+        index += 1;
+        continue;
+      }
+      renamed += renames.get(key);
+      index += key.length;
+    }
+    if (renamed.length > MAX_IDENTIFIER) {
+      throw new Error(`renamed identifier ${JSON.stringify(renamed)} exceeds ${MAX_IDENTIFIER} bytes`);
+    }
+    return renamed;
   });
 };
 
@@ -104,6 +142,7 @@ const partition = (sql, table, { by, column }) => {
 };
 
 const transform = (source, sql, { tables, columns, loginAttempt }) => {
+  validateColumns(columns);
   const table = FILE_TABLE[source];
   let out = sql;
   if (table === 'credential' && columns?.credential !== undefined) {

@@ -155,6 +155,39 @@ describe('emitAuthSql options', () => {
     ).rejects.toThrow(/distinct/i);
   });
 
+  it('renaming one table renames it inside a compound index name too', async () => {
+    const destDir = await tempDir();
+
+    await emitAuthSql({ destDir, utc14: UTC14, tables: { subject: 'accounts' } });
+
+    const refresh = await readFile(join(destDir, `${UTC14}_refresh_token.sql`), 'utf8');
+    expect(refresh).toContain('refresh_token_live_accounts_idx');
+    expect(refresh).not.toContain('refresh_token_live_subject_idx');
+  });
+
+  it('refuses an unknown credential column option or a non-boolean value', async () => {
+    const destDir = await tempDir();
+    const invalid = [
+      { credential: { failedcount: false } },
+      { credential: { failedCount: 'false' } },
+      { credentialx: {} },
+    ];
+
+    for (const columns of invalid) {
+      await expect(
+        emitAuthSql({ destDir, utc14: UTC14, columns } as unknown as Parameters<typeof emitAuthSql>[0]),
+      ).rejects.toThrow(/columns/);
+    }
+  });
+
+  it('refuses a rename whose derived identifier would exceed the 63-byte limit', async () => {
+    const destDir = await tempDir();
+
+    await expect(
+      emitAuthSql({ destDir, utc14: UTC14, tables: { loginAttempt: 'a'.repeat(50) } }),
+    ).rejects.toThrow(/63/);
+  });
+
   it('every foreign key and index name follows the table map', async () => {
     const destDir = await tempDir();
     const tables = {
@@ -173,8 +206,8 @@ describe('emitAuthSql options', () => {
     const attempts = await read('login_attempt');
     expect(sessions).toContain('accounts_id uuid NOT NULL REFERENCES accounts (id)');
     expect(sessions).toContain('CREATE UNIQUE INDEX sessions_token_hash_key ON sessions (token_hash)');
-    expect(sessions).toContain('CREATE INDEX sessions_live_subject_idx ON sessions (accounts_id)');
-    expect(resets).toContain('resets_live_subject_idx ON resets (accounts_id)');
+    expect(sessions).toContain('CREATE INDEX sessions_live_accounts_idx ON sessions (accounts_id)');
+    expect(resets).toContain('resets_live_accounts_idx ON resets (accounts_id)');
     expect(attempts).toContain('CREATE INDEX attempts_email_hash_at_idx ON attempts (email_hash, at)');
     for (const sql of [sessions, resets, attempts]) {
       expect(sql).not.toMatch(/\b(subject|subject_credential|refresh_token|password_reset_token|login_attempt)\b/);
