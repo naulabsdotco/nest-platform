@@ -110,4 +110,38 @@ describe('reference SQL', () => {
       await rm(destDir, { recursive: true, force: true });
     }
   }, 60_000);
+
+  it('the down and verify files apply after up', async () => {
+    const destDir = await mkdtemp(join(tmpdir(), 'auth-core-sql-'));
+    try {
+      const written = await emitAuthSql({
+        destDir,
+        utc14: '20260101000100',
+        direction: 'both',
+        verify: true,
+        tables: {
+          subject: 'members',
+          credential: 'member_credentials',
+          refreshToken: 'member_sessions',
+          resetToken: 'member_resets',
+          loginAttempt: 'member_attempts',
+        },
+        columns: { credential: { lockedUntil: false } },
+      });
+      const ups = written.filter((path) => !path.endsWith('.down.sql') && !path.endsWith('_verify.sql'));
+      const downs = written.filter((path) => path.endsWith('.down.sql'));
+      const verify = written.filter((path) => path.endsWith('_verify.sql'));
+
+      for (const file of ups) await client.query(await readFile(file, 'utf8'));
+      await client.query(await readFile(verify[0] as string, 'utf8'));
+      for (const file of downs) await client.query(await readFile(file, 'utf8'));
+
+      const { rows } = await client.query<{ table_name: string }>(
+        "select table_name from information_schema.tables where table_schema = 'public' and table_name like 'member%'",
+      );
+      expect(rows).toEqual([]);
+    } finally {
+      await rm(destDir, { recursive: true, force: true });
+    }
+  }, 60_000);
 });

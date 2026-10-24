@@ -157,31 +157,119 @@ const transform = (source, sql, { tables, columns, loginAttempt }) => {
   return renameIdentifiers(out, renameMap(tables));
 };
 
+const DOWN_ORDER = ['loginAttempt', 'resetToken', 'refreshToken', 'credential', 'subject'];
+
+const tableNames = (renames) =>
+  Object.fromEntries(Object.entries(TABLES).map(([key, name]) => [key, renames.get(name) ?? name]));
+
+const upFiles = async (shape) => {
+  const sources = (await readdir(SQL_DIR)).filter((name) => name.endsWith('.sql')).sort();
+  return Promise.all(
+    sources.map(async (source) => ({
+      name: source.replace(ORDINAL, ''),
+      table: FILE_TABLE[source],
+      contents: transform(source, await readFile(join(SQL_DIR, source), 'utf8'), shape),
+    })),
+  );
+};
+
+const existsStatement = (table, column) =>
+  `  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = '${table}' AND column_name = '${column}') THEN
+    RAISE EXCEPTION 'verify: ${table}.${column} is missing';
+  END IF;`;
+
+// Plain SQL, not pgTap: the consumer's migration gate runs it against the applied schema.
+const verifySql = (names, dropped, partitioned) => {
+  const statements = DOWN_ORDER.map(
+    (key) => `  IF to_regclass('${names[key]}') IS NULL THEN
+    RAISE EXCEPTION 'verify: table ${names[key]} is missing';
+  END IF;`,
+  );
+  statements.push(existsStatement(names.credential, 'hash'));
+  statements.push(existsStatement(names.refreshToken, 'token_hash'));
+  statements.push(existsStatement(names.resetToken, 'token_hash'));
+  for (const column of dropped) {
+    statements.push(`  IF EXISTS (SELECT 1 FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = '${names.credential}' AND column_name = '${column}') THEN
+    RAISE EXCEPTION 'verify: ${names.credential}.${column} should be absent';
+  END IF;`);
+  }
+  if (partitioned) {
+    statements.push(`  IF NOT EXISTS (SELECT 1 FROM pg_partitioned_table
+    JOIN pg_class ON pg_class.oid = pg_partitioned_table.partrelid
+    WHERE relname = '${names.loginAttempt}' AND relnamespace = current_schema()::regnamespace) THEN
+    RAISE EXCEPTION 'verify: ${names.loginAttempt} is not partitioned';
+  END IF;`);
+  }
+  return `DO $$\nBEGIN\n${statements.join('\n')}\nEND\n$$;\n`;
+};
+
+const plan = async ({ destDir, utc14, direction = 'up', verify = false, ...shape }) => {
+  if (!UTC14.test(utc14)) throw new Error(`utc14 must be 14 digits, got ${JSON.stringify(utc14)}`);
+  if (!['up', 'down', 'both'].includes(direction)) {
+    throw new Error(`direction must be "up", "down" or "both", got ${JSON.stringify(direction)}`);
+  }
+  if (verify && direction === 'down') throw new Error('verify requires direction "up" or "both"');
+
+  const renames = renameMap(shape.tables);
+  const names = tableNames(renames);
+  const ups = await upFiles(shape);
+  const files = [];
+  if (direction !== 'down') files.push(...ups);
+  if (direction !== 'up') {
+    files.push(
+      ...[...ups].reverse().map(({ name, table }) => ({
+        name: `${name.replace(/\.sql$/, '')}.down.sql`,
+        contents: `DROP TABLE IF EXISTS ${names[table]};\n`,
+      })),
+    );
+  }
+  if (verify) {
+    const dropped = Object.entries(CREDENTIAL_COLUMNS)
+      .filter(([key]) => shape.columns?.credential?.[key] === false)
+      .map(([, column]) => column);
+    files.push({
+      name: 'verify.sql',
+      contents: verifySql(names, dropped, shape.loginAttempt?.partitioned !== undefined),
+    });
+  }
+  return files.map(({ name, contents }) => ({ target: join(destDir, `${utc14}_${name}`), contents }));
+};
+
 /**
  * Copies the reference SQL into a consumer's migration directory as `<utc14>_<name>.sql`.
  * The files are never executed here and an existing target is never overwritten. Omitted options
- * keep the reference names and shape, so the emitted bytes are the source files.
+ * keep the reference names and shape, so the emitted bytes are the source files. Check mode writes
+ * nothing and reports each planned file as `missing`, `differs` or `in-sync`.
  */
-export async function emitAuthSql({ destDir, utc14, tables, columns, loginAttempt }) {
-  if (!UTC14.test(utc14)) throw new Error(`utc14 must be 14 digits, got ${JSON.stringify(utc14)}`);
+export async function emitAuthSql(opts) {
+  const planned = await plan(opts);
 
-  const sources = (await readdir(SQL_DIR)).filter((name) => name.endsWith('.sql')).sort();
-  const targets = await Promise.all(
-    sources.map(async (source) => ({
-      source,
-      target: join(destDir, `${utc14}_${source.replace(ORDINAL, '')}`),
-      contents: transform(source, await readFile(join(SQL_DIR, source), 'utf8'), { tables, columns, loginAttempt }),
-    })),
-  );
+  if (opts.mode === 'check') {
+    return Promise.all(
+      planned.map(async ({ target, contents }) => ({
+        path: target,
+        status: !(await exists(target))
+          ? 'missing'
+          : (await readFile(target, 'utf8')) === contents
+            ? 'in-sync'
+            : 'differs',
+      })),
+    );
+  }
+  if (opts.mode !== undefined && opts.mode !== 'write') {
+    throw new Error(`mode must be "write" or "check", got ${JSON.stringify(opts.mode)}`);
+  }
 
-  for (const { target } of targets) {
+  for (const { target } of planned) {
     if (await exists(target)) throw new Error(`refusing to overwrite ${target}`);
   }
 
-  await mkdir(destDir, { recursive: true });
+  await mkdir(opts.destDir, { recursive: true });
   const written = [];
   try {
-    for (const { target, contents } of targets) {
+    for (const { target, contents } of planned) {
       // `wx` is the second line of defence: the pre-check above is not atomic on its own.
       await writeFile(target, contents, { flag: 'wx' });
       written.push(target);
@@ -191,7 +279,7 @@ export async function emitAuthSql({ destDir, utc14, tables, columns, loginAttemp
     await Promise.all(written.map((path) => rm(path, { force: true })));
     throw error;
   }
-  return targets.map(({ target }) => target);
+  return planned.map(({ target }) => target);
 }
 
 async function run() {
@@ -203,14 +291,26 @@ async function run() {
   const destDir = valueOf('--dest');
   const utc14 = valueOf('--utc14');
   const configPath = valueOf('--config');
+  const mode = args.includes('--check') ? 'check' : 'write';
+  const direction = valueOf('--direction');
+  const verify = args.includes('--verify');
 
   if (destDir === undefined || utc14 === undefined) {
-    console.error('usage: emit-auth-sql --dest <dir> --utc14 <14-digit utc timestamp> [--config <json>]');
+    console.error(
+      'usage: emit-auth-sql --dest <dir> --utc14 <14-digit utc timestamp> [--config <json>] [--check] [--direction up|down|both] [--verify]',
+    );
     process.exitCode = 2;
     return;
   }
   const config = configPath === undefined ? {} : JSON.parse(await readFile(configPath, 'utf8'));
-  for (const written of await emitAuthSql({ destDir, utc14, ...config })) console.log(written);
+  const emission = await emitAuthSql({ destDir, utc14, ...config, mode, direction, verify });
+
+  if (mode === 'check') {
+    for (const { path, status } of emission) console.log(`${status} ${path}`);
+    if (emission.some(({ status }) => status !== 'in-sync')) process.exitCode = 1;
+    return;
+  }
+  for (const written of emission) console.log(written);
 }
 
 // A consumer invokes this through node_modules/.bin, which is a symlink: argv[1] is the link while

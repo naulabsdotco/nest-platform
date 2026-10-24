@@ -175,13 +175,21 @@ default) and both tokens store a SHA-256 `token_hash`, uniquely indexed. There i
 membership table; the scope model is the consumer's.
 
 `emitAuthSql({ destDir, utc14, ...shape })`, also runnable as
-`emit-auth-sql --dest <dir> --utc14 <14 digits> [--config <json>]` (or
-`node node_modules/@naulabsco/auth-core/bin/emit-auth-sql.mjs`), copies
-each file into the consumer's migration directory as `<utc14>_<name>.sql`, in the reference order.
-It never executes them and refuses to overwrite an existing target, so a second emit fails loudly
-instead of silently replacing a file; a write that fails midway removes the files that run created.
-**The consumer owns the migration** — its forward file, rollback, verification and schema assertions;
-the package never runs a migration or connects as an elevated role.
+`emit-auth-sql --dest <dir> --utc14 <14 digits> [--config <json>] [--check] [--direction up|down|both] [--verify]`
+(or `node node_modules/@naulabsco/auth-core/bin/emit-auth-sql.mjs`), copies each file into the
+consumer's migration directory as `<utc14>_<name>.sql`, in the reference order. It never executes
+them and refuses to overwrite an existing target, so a second emit fails loudly instead of silently
+replacing a file; a write that fails midway removes the files that run created. **The consumer owns
+the migration** — its forward file, rollback, verification and schema assertions; the package never
+runs a migration or connects as an elevated role.
+
+`direction: 'down'` adds one `<utc14>_<name>.down.sql` per table, a `DROP TABLE IF EXISTS` ordered so
+the child tables go first; `'both'` emits the up set followed by the down set. `verify: true` adds
+`<utc14>_verify.sql`, a `DO` block that raises when a table, a hashed column or the partition is
+missing, or a disabled column is present — apply it after the up set. `verify` with a down-only
+direction is refused. `mode: 'check'` writes nothing and returns
+`{ path, status: 'missing' | 'differs' | 'in-sync' }` per planned file; `--check` prints that line per
+file and exits 1 when any file is not in sync, 0 otherwise. Write mode keeps the overwrite refusal.
 
 The optional `shape` renames tables, removes credential columns and partitions the attempt table. An
 omitted key keeps today's output byte-for-byte; the value must be a lowercase SQL identifier, because
