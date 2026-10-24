@@ -99,7 +99,11 @@ error-code map, the envelope and the seed stay with the consumer.
 | `AuthStore` | credentials by email, scopes by email, optional `createSubject` (subject, credential and scope rows in one transaction), credential-hash replacement, refresh and reset rows, login-attempt audit |
 | `ScopeResolver<TScope extends AuthScope>` | `resolve(sub): Promise<TScope \| null>` |
 | `PermissionCatalogue` | `grantsFor(scope, role): Promise<ReadonlySet<string>>` |
-| `PasswordPolicy` | `validate(password): void \| Promise<void>` |
+| `PasswordPolicy` | `validate(password): void \| Promise<void>`; a rejection throws `AuthPasswordPolicyError` with `{ problems: [{ rule, detail? }] }` |
+
+`AuthPasswordPolicyError` reports `AUTH_PASSWORD_POLICY`, `AUTH_ERROR_STATUS` maps it to 422, and
+`ApplicationError.fromDomain` carries the code, the status and the `problems` list unchanged. The
+package never catches or rewraps it, and the policy runs before any state change in a reset.
 | `Clock` | `now(): Date`, so expiry and reuse grace are testable |
 | `UnitOfWork` | optional `transaction(work)`: one transaction for the reset flow's consume, hash and revoke |
 | `ResetLinkSink` | `send({ email, token }): Promise<void>` — the consumer delivers the link |

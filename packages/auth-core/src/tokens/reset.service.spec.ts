@@ -137,7 +137,9 @@ const MIN_LENGTH = 12;
 
 const policy: PasswordPolicy = {
   validate(password: string): void {
-    if (password.length < MIN_LENGTH) throw new AuthPasswordPolicyError({ reason: 'too short' });
+    if (password.length < MIN_LENGTH) {
+      throw new AuthPasswordPolicyError({ problems: [{ rule: 'min-length', detail: String(MIN_LENGTH) }] });
+    }
   },
 };
 

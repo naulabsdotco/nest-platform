@@ -67,6 +67,27 @@ bcrypt is an optional peer, loaded only when opted in, so a consumer that never 
 build that native module. Note that bcrypt truncates a password at 72 bytes. Both schemes are native
 modules: a consumer's package manager must be allowed to run their install scripts.
 
+## Password policy
+
+`PasswordPolicy.validate` reports a rejection by throwing `AuthPasswordPolicyError` with
+`criteria: { problems: [{ rule, detail? }] }` — `detail` is optional and carries the requirement, never
+the password. The class reports `AUTH_PASSWORD_POLICY`, `AUTH_ERROR_STATUS` maps that code to **422**,
+and the package neither catches nor rewraps the error, so `ApplicationError.fromDomain` keeps the code,
+the status and the `problems` list unchanged. `validate` may be async; it is awaited before any state
+change in `resetPassword`, so a rejected password leaves the reset token usable and the stored hash
+untouched. A consumer that throws anything else gets a 500 with no detail, which is why the class —
+not a string or a bare `Error` — is the convention.
+
+```ts
+class MinimumLengthPolicy implements PasswordPolicy {
+  validate(password: string): void {
+    if (password.length < 12) {
+      throw new AuthPasswordPolicyError({ problems: [{ rule: 'min-length', detail: '12' }] });
+    }
+  }
+}
+```
+
 ## Tokens
 
 `createTokenService(cfg)` signs HS256 access tokens pinned to the active kid, `iss` and `aud`, with the
