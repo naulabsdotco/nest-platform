@@ -88,9 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      id-token: write # npm trusted publishing (OIDC) and provenance
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -100,19 +98,26 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+      # A missing or mismatched trusted publisher is the one failure a retry cannot fix. Exchange a
+      # token for every package first, so it fails here with a named package instead of mid-publish.
+      - name: every package trusts this workflow
+        run: |
+          set -euo pipefail
+          id_token=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:?id-token: write is missing}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL:?id-token: write is missing}&audience=npm:registry.npmjs.org" |
+            node -p 'JSON.parse(require("node:fs").readFileSync(0, "utf8")).value')
+          for package in config logging errors auth-core; do
+            curl -sS --fail-with-body -o /dev/null -X POST -H "Authorization: Bearer $id_token" \
+              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@naulabsco%2F$package" ||
+              { echo "::error::no trusted publisher for @naulabsco/$package"; exit 1; }
+          done
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec nx run-many -t build
       - name: pack the versioned packages and fail on a missing dist file
-        if: env.NPM_TOKEN != ''
         run: node scripts/release-dry-run.mjs
-      # changeset publish uses pnpm, which rewrites workspace:* and is the only publisher here.
+      # changesets publishes through pnpm, which rewrites workspace:* and exchanges the GitHub OIDC
+      # token for a short-lived npm token per package. No stored token; OIDC attaches provenance.
       - name: publish with npm provenance
-        if: env.NPM_TOKEN != ''
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PNPM_CONFIG_PROVENANCE: 'true'
         run: pnpm exec changeset publish
-      - name: publish skipped
-        if: env.NPM_TOKEN == ''
-        run: echo "::notice::NPM_TOKEN is not set. Enable Actions, create the @naulabsco npm org and add the NPM_TOKEN secret, then re-run."
