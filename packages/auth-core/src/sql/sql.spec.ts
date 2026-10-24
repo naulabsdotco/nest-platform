@@ -141,6 +141,9 @@ describe('reference SQL', () => {
         "select table_name from information_schema.tables where table_schema = 'public' and table_name like 'member%'",
       );
       expect(rows).toEqual([]);
+
+      // The same assertions fail loudly once the schema is gone; the verify file is not a no-op.
+      await expect(client.query(await readFile(verify[0] as string, 'utf8'))).rejects.toThrow(/verify: table/);
     } finally {
       await rm(destDir, { recursive: true, force: true });
     }
