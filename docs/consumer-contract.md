@@ -94,7 +94,7 @@ error-code map, the envelope and the seed stay with the consumer.
 
 | Port | Contract |
 | --- | --- |
-| `AuthStore` | credentials by email, scopes by email, credential-hash replacement, refresh and reset rows, login-attempt audit |
+| `AuthStore` | credentials by email, scopes by email, `createSubject` (subject, credential and scope rows in one transaction), credential-hash replacement, refresh and reset rows, login-attempt audit |
 | `ScopeResolver<TScope extends AuthScope>` | `resolve(sub): Promise<TScope \| null>` |
 | `PermissionCatalogue` | `grantsFor(scope, role): Promise<ReadonlySet<string>>` |
 | `PasswordPolicy` | `validate(password): void \| Promise<void>` |

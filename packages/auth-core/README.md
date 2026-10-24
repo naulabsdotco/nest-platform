@@ -36,7 +36,7 @@ A consumer supplies the adapters; the package never compiles one in. The package
 
 | Port | The consumer answers |
 | --- | --- |
-| `AuthStore` | credentials, scopes, refresh and reset rows, and the login-attempt audit — keyed by `subject`, never a product noun |
+| `AuthStore` | credentials, scopes, refresh and reset rows, and the login-attempt audit — keyed by `subject`, never a product noun; plus subject creation |
 | `ScopeResolver<TScope>` | which `scope`/`role` a subject holds |
 | `PermissionCatalogue` | the grants for a `scope` + `role` pair |
 | `PasswordPolicy` | whether a candidate password is acceptable |
@@ -175,6 +175,15 @@ to `RefreshService.rotate` and mints a new access token; `logout` revokes the pr
 family, and an unknown token is ignored so logout stays idempotent and does not reveal whether it
 existed. `AuthService` takes only the store, verifier, token service and refresh service: the store
 stamps attempts, and `ResetService` owns the password policy.
+
+## Creating subjects
+
+`AuthStore.createSubject({ email, credential, scopes })` is the one write an invite, admin or seed
+flow makes: the adapter inserts the subject, its credential and every scope row in one transaction, so
+a failure leaves no orphan. A scope's `active` defaults to true. A duplicate email and a scope the
+consumer does not know are refused with the same `AuthSubjectCreationFailedError` (409) — the
+adapter's own constraint decides which, and the caller sees one typed failure rather than SQL detail.
+No plaintext password reaches the port: the consumer hashes it and passes `{ algo, hash }`.
 
 ## Reference SQL
 
