@@ -137,6 +137,24 @@ describe('emitAuthSql options', () => {
     expect(credential).not.toMatch(/\bsubject(_credential)?\b/);
   });
 
+  it('renaming only the subject table leaves the credential table name alone', async () => {
+    const destDir = await tempDir();
+
+    await emitAuthSql({ destDir, utc14: UTC14, tables: { subject: 'accounts' } });
+
+    const credential = await readFile(join(destDir, `${UTC14}_subject_credential.sql`), 'utf8');
+    expect(credential).toContain('CREATE TABLE subject_credential (');
+    expect(credential).toContain('accounts_id uuid PRIMARY KEY REFERENCES accounts (id)');
+  });
+
+  it('refuses two tables mapped to the same name', async () => {
+    const destDir = await tempDir();
+
+    await expect(
+      emitAuthSql({ destDir, utc14: UTC14, tables: { subject: 'accounts', credential: 'accounts' } }),
+    ).rejects.toThrow(/distinct/i);
+  });
+
   it('every foreign key and index name follows the table map', async () => {
     const destDir = await tempDir();
     const tables = {

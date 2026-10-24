@@ -49,14 +49,23 @@ const identifier = (value, option) => {
   return value;
 };
 
-const renameMap = (tables = {}) =>
-  new Map(
+const renameMap = (tables = {}) => {
+  const map = new Map(
     Object.entries(tables).map(([key, name]) => {
-      const fallback = TABLES[key];
-      if (fallback === undefined) throw new Error(`unknown tables option ${JSON.stringify(key)}`);
-      return [fallback, identifier(name, `tables.${key}`)];
+      if (TABLES[key] === undefined) throw new Error(`unknown tables option ${JSON.stringify(key)}`);
+      return [key, name];
     }),
   );
+  const names = Object.fromEntries(
+    Object.entries(TABLES).map(([key, fallback]) => [
+      fallback,
+      map.has(key) ? identifier(map.get(key), `tables.${key}`) : fallback,
+    ]),
+  );
+  const final = Object.values(names);
+  if (new Set(final).size !== final.length) throw new Error('tables must map to distinct names');
+  return new Map(Object.entries(names));
+};
 
 // Longest key first so `subject_credential` wins over `subject`. A renamed table also renames the
 // columns and indexes that carry it as a prefix (`subject_id`, `subject_credential_pkey`).

@@ -185,9 +185,9 @@ the package never runs a migration or connects as an elevated role.
 
 The optional `shape` renames tables, removes credential columns and partitions the attempt table. An
 omitted key keeps today's output byte-for-byte; the value must be a lowercase SQL identifier, because
-it is interpolated into the emitted SQL. Every identifier that carries a renamed table as a prefix
-follows it — `subject_id` columns and index names included — while the file names keep the reference
-names and the set is returned in reference order.
+it is interpolated into the emitted SQL, and two tables cannot map to the same name. Every identifier
+that carries a renamed table as a prefix follows it — `subject_id` columns and index names included —
+while the file names keep the reference names and the set is returned in reference order.
 
 | Option | Default | Effect |
 | --- | --- | --- |
