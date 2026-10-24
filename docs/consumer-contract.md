@@ -100,13 +100,13 @@ error-code map, the envelope and the seed stay with the consumer.
 | `ScopeResolver<TScope extends AuthScope>` | `resolve(sub): Promise<TScope \| null>` |
 | `PermissionCatalogue` | `grantsFor(scope, role): Promise<ReadonlySet<string>>` |
 | `PasswordPolicy` | `validate(password): void \| Promise<void>`; a rejection throws `AuthPasswordPolicyError` with `{ problems: [{ rule, detail? }] }` |
+| `Clock` | `now(): Date`, so expiry and reuse grace are testable |
+| `UnitOfWork` | optional `transaction(work)`: one transaction for the reset flow's consume, hash and revoke |
+| `ResetLinkSink` | `send({ email, token }): Promise<void>` — the consumer delivers the link |
 
 `AuthPasswordPolicyError` reports `AUTH_PASSWORD_POLICY`, `AUTH_ERROR_STATUS` maps it to 422, and
 `ApplicationError.fromDomain` carries the code, the status and the `problems` list unchanged. The
 package never catches or rewraps it, and the policy runs before any state change in a reset.
-| `Clock` | `now(): Date`, so expiry and reuse grace are testable |
-| `UnitOfWork` | optional `transaction(work)`: one transaction for the reset flow's consume, hash and revoke |
-| `ResetLinkSink` | `send({ email, token }): Promise<void>` — the consumer delivers the link |
 
 `AuthScope` is `{ subject, scope, role, active }`; the meaning of `scope` and `role` is the consumer's.
 `RefreshService.issue` caps the user agent at 512 characters and drops an ip that is not an IP literal;

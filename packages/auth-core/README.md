@@ -75,8 +75,9 @@ the password. The class reports `AUTH_PASSWORD_POLICY`, `AUTH_ERROR_STATUS` maps
 and the package neither catches nor rewraps the error, so `ApplicationError.fromDomain` keeps the code,
 the status and the `problems` list unchanged. `validate` may be async; it is awaited before any state
 change in `resetPassword`, so a rejected password leaves the reset token usable and the stored hash
-untouched. A consumer that throws anything else gets a 500 with no detail, which is why the class —
-not a string or a bare `Error` — is the convention.
+untouched. A throw that is not a `DomainError` becomes a 500 with no detail through
+`ApplicationError.fromDomain`; the `@naulabsco/errors` filter still maps a `ZodError` to 400 and passes a
+Nest `HttpException` through, so the policy is not the only error path.
 
 ```ts
 class MinimumLengthPolicy implements PasswordPolicy {
