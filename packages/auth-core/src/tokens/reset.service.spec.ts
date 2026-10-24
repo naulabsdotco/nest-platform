@@ -30,6 +30,8 @@ class ResetStore {
   readonly issued: ResetInput[] = [];
   readonly replaced: Array<{ subjectId: string; hash: string }> = [];
   readonly revokedSubjects: string[][] = [];
+  readonly calls: Array<{ method: string; tx?: AuthTransaction }> = [];
+  activeTx: AuthTransaction;
   failReplace = false;
   private readonly resets = new Map<string, ResetRecord>();
   private readonly credentials = new Map<string, StoredCredential>();
@@ -41,8 +43,9 @@ class ResetStore {
       const credentials = new Map(this.credentials);
       const replaced = [...this.replaced];
       const revoked = [...this.revokedSubjects];
+      this.activeTx = { client: 'tx' };
       try {
-        return await work({} as AuthTransaction);
+        return await work(this.activeTx);
       } catch (error) {
         this.resets.clear();
         for (const [hash, record] of resets) this.resets.set(hash, record);
@@ -77,12 +80,14 @@ class ResetStore {
     return record;
   }
 
-  async findResetToken(tokenHash: string): Promise<ResetRecord | null> {
+  async findResetToken(tokenHash: string, tx?: AuthTransaction): Promise<ResetRecord | null> {
+    this.calls.push({ method: 'findResetToken', tx });
     return this.resets.get(tokenHash) ?? null;
   }
 
   // Consumes every live row for the subject, not only the presented one.
-  async consumeResetToken(id: string): Promise<boolean> {
+  async consumeResetToken(id: string, tx?: AuthTransaction): Promise<boolean> {
+    this.calls.push({ method: 'consumeResetToken', tx });
     const target = [...this.resets.values()].find((record) => record.id === id);
     if (target === undefined || target.consumedAt !== null) return false;
     for (const [hash, record] of this.resets) {
@@ -91,7 +96,8 @@ class ResetStore {
     return true;
   }
 
-  async replaceCredentialHash(subjectId: string, hash: string): Promise<void> {
+  async replaceCredentialHash(subjectId: string, hash: string, tx?: AuthTransaction): Promise<void> {
+    this.calls.push({ method: 'replaceCredentialHash', tx });
     if (this.failReplace) throw new Error('replace failed');
     this.replaced.push({ subjectId, hash });
     for (const [email, credential] of this.credentials) {
@@ -99,7 +105,8 @@ class ResetStore {
     }
   }
 
-  async revokeRefreshForSubjects(subjectIds: readonly string[]): Promise<void> {
+  async revokeRefreshForSubjects(subjectIds: readonly string[], tx?: AuthTransaction): Promise<void> {
+    this.calls.push({ method: 'revokeRefreshForSubjects', tx });
     this.revokedSubjects.push([...subjectIds]);
   }
 
@@ -229,6 +236,24 @@ describe('ResetService.resetPassword', () => {
     expect(store.revokedSubjects).toEqual([['subject-1']]);
   });
 
+  it('threads the transaction handle into all three writes', async () => {
+    const time = clock();
+    const store = new ResetStore(time);
+    const sink = new RecordingSink();
+    const service = serviceOver(store, time, sink, store.unitOfWork);
+    const token = await knownToken(store, sink, time);
+
+    await service.resetPassword(token, 'a-good-password');
+
+    const writes = store.calls.filter(({ method }) => method !== 'findResetToken');
+    expect(writes.map(({ method }) => method)).toEqual([
+      'consumeResetToken',
+      'replaceCredentialHash',
+      'revokeRefreshForSubjects',
+    ]);
+    for (const { tx } of writes) expect(tx).toBe(store.activeTx);
+  });
+
   it('refuses an unknown token', async () => {
     const time = clock();
     const store = new ResetStore(time);
@@ -291,6 +316,9 @@ describe('ResetService.resetPassword', () => {
 
     expect((await store.findResetToken(sha256(token)))?.consumedAt).toBeNull();
     expect(store.credentialHash('subject@example.com')).toBe('argon2id$old');
+    const attempted = store.calls.filter(({ method }) => method !== 'findResetToken');
+    expect(attempted.length).toBeGreaterThan(0);
+    for (const { tx } of attempted) expect(tx).toBe(store.activeTx);
 
     store.failReplace = false;
     await expect(service.resetPassword(token, 'a-good-password')).resolves.toBeUndefined();

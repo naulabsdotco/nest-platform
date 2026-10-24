@@ -166,9 +166,10 @@ hash and revokes every refresh family for the subject. The token is never a JWT,
 reaches the store.
 
 `unitOfWork` makes the consume, the hash replacement and the refresh revocation one transaction:
-`ResetService` calls `unitOfWork.transaction(work)` with an opaque `AuthTransaction`, and the store
-methods it uses take that value as their optional trailing argument. The adapter must run the four
-calls on the same transaction, make `consumeResetToken` spend every live row for the subject in one
+`ResetService` calls `unitOfWork.transaction(work)` with an opaque `AuthTransaction` and passes that
+value to the three writes (`consumeResetToken`, `replaceCredentialHash`, `revokeRefreshForSubjects`);
+the pre-transaction `findResetToken` read carries none. The adapter must run those three writes on the
+same transaction, make `consumeResetToken` spend every live row for the subject in one
 statement, and roll back on any throw. Without a `UnitOfWork` the three writes stay sequential and the
 adapter must make them atomic itself: a failure between them can spend the token without changing the
 password, or change the password while a refresh family survives. The result of `forgotPassword` is
