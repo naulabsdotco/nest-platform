@@ -6,6 +6,7 @@ import type { AuthStore } from '../ports/auth-store';
 import type { Clock } from '../ports/clock';
 import type { PasswordPolicy } from '../ports/password-policy';
 import type { AuthTransaction, UnitOfWork } from '../ports/unit-of-work';
+import { DEFERRED_SEAM } from '../di';
 
 export interface ResetLinkSink {
   send(input: { email: string; token: string }): Promise<void>;
@@ -25,6 +26,9 @@ export interface ResetServiceOptions {
 const RESET_BYTES = 32;
 
 const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
+
+const isDeferred = (sink: ResetLinkSink): boolean =>
+  (sink as unknown as Record<symbol, unknown>)[DEFERRED_SEAM] === true;
 
 export class ResetService {
   private readonly logger = new Logger(ResetService.name);
@@ -46,9 +50,9 @@ export class ResetService {
     try {
       await this.opts.sink.send({ email, token });
     } catch (error) {
-      // A deferred seam is a configuration failure, not a delivery failure; swallowing it would call
-      // an unconfigured app healthy and hide which seam is missing.
-      if (error instanceof AuthConfigError) throw error;
+      // Only the deferred proxy is surfaced: a configured sink that raises AuthConfigError for its own
+      // missing setting must stay swallowed, or a known address answers differently from an unknown one.
+      if (error instanceof AuthConfigError && isDeferred(this.opts.sink)) throw error;
       // Returning a failure here would tell the caller the address exists; the send is the consumer's to retry.
       this.logger.warn({ event: 'auth.reset.link_failed', outcome: 'error' });
     }

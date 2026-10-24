@@ -90,10 +90,10 @@ add consumer guards at `afterAuth` (after the JWT guard, before the scope guard)
 (after the scope guard, before the permission guard); no other slot exists. Each entry is a guard class
 (dependency-free, resolved in auth-core's injector) or a guard instance for one that needs a consumer
 provider; `@Public` routes run them without a principal or scope. `deferredSeams` may name
-any adapter seam that is not ready yet: it is injected as a proxy that throws
-`AuthConfigError({ missing })` on first use, and `AuthCoreModule.assertSeamsReady(app)` lists the ones
-still deferred. `tokenConfig` and the lifetimes are never deferrable. The scope model, the error-code
-map, the envelope and the seed stay with the consumer.
+any adapter seam that is not ready yet: only those names become optional in the options type, and each
+missing one is injected as a proxy that throws `AuthConfigError({ missing })` on first use;
+`AuthCoreModule.assertSeamsReady(app)` lists the ones still deferred. `tokenConfig` and the lifetimes are
+never deferrable. The scope model, the error-code map, the envelope and the seed stay with the consumer.
 
 ### Ports a consumer implements
 

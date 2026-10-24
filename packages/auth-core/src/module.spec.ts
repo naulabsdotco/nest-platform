@@ -471,4 +471,23 @@ describe('AuthCoreModule deferred seams', () => {
       AuthCoreModule.forRoot(options({ deferredSeams: ['tokenConfig' as AdapterSeam] })),
     ).toThrow(AuthConfigError);
   });
+
+  it('refuses a deferredSeams value that is not an array instead of throwing a TypeError', () => {
+    expect(() =>
+      AuthCoreModule.forRoot(options({ deferredSeams: 42 as unknown as readonly AdapterSeam[] })),
+    ).toThrow(AuthConfigError);
+  });
+
+  it('still requires an adapter seam that is not named in deferredSeams', () => {
+    // Type-level: `store` is absent and not deferred, so this object is not valid options.
+    const invalid: DeferredAuthCoreOptions<'passwordPolicy'> = {
+      ...options(),
+      // @ts-expect-error store is required because only passwordPolicy is deferred
+      store: undefined,
+      passwordPolicy: undefined,
+      deferredSeams: ['passwordPolicy'],
+    };
+
+    expect(invalid.deferredSeams).toEqual(['passwordPolicy']);
+  });
 });

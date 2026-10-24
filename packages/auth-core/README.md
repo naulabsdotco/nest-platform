@@ -34,7 +34,8 @@ instead of stubbing it (see [Deferred seams](#deferred-seams)).
 ## Deferred seams
 
 An app can boot before every adapter exists. Name the missing ones in `deferredSeams`; only the six
-adapter seams are accepted, and `tokenConfig` and the lifetimes are always required.
+adapter seams are accepted, and `tokenConfig` and the lifetimes are always required. The options type
+makes exactly the named seams optional, so a different missing adapter still fails to compile.
 
 ```ts
 AuthCoreModule.forRoot({ ...partial, deferredSeams: ['passwordPolicy', 'resetLinkSink'] });
@@ -43,14 +44,15 @@ AuthCoreModule.forRoot({ ...partial, deferredSeams: ['passwordPolicy', 'resetLin
 Each deferred seam is a proxy whose members throw `AuthConfigError({ missing: 'passwordPolicy' })` on
 first use, so a route that needs it fails closed with a named error instead of `undefined is not a
 function`; a `@Public` route boots and works because it reads no seam. A seam that is both provided and
-listed is used, not deferred. `deferredSeams` naming anything else fails boot.
+listed is used, not deferred. `deferredSeams` naming anything else, or not being an array, fails boot.
 
 `AuthCoreModule.assertSeamsReady(app)` is an optional, explicit gate for an e2e test: it throws
 `AuthConfigError({ deferred: ['passwordPolicy', 'resetLinkSink'] })` listing every seam still deferred,
 and passes unchanged when the options are complete. That is the full-double composition: the quickstart
 above with all six adapters, then `assertSeamsReady` before the suite runs. The reset link's send
-failure handler re-throws `AuthConfigError`, because an unconfigured adapter is not a delivery failure
-to swallow.
+failure handler re-throws only the deferred proxy's error, because an unconfigured adapter is not a
+delivery failure to swallow; a configured sink that raises its own `AuthConfigError` is still logged and
+swallowed, so a known address cannot be told apart from an unknown one.
 
 ## Implement these ports
 

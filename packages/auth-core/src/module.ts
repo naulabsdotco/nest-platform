@@ -4,6 +4,7 @@ import { createPasswordVerifier, type PasswordVerifier } from './crypto/password
 import {
   AUTH_CODES,
   AUTH_OPTIONS,
+  DEFERRED_SEAM,
   DEFERRED_SEAMS,
   JWT_STRATEGY,
   PASSWORD_VERIFIER,
@@ -71,10 +72,13 @@ export interface AuthCoreOptions {
   deferredSeams?: readonly AdapterSeam[];
 }
 
-// The adapter seams become optional only when the same call names them in `deferredSeams`, so a
-// missing adapter still fails to compile unless the consumer says it is deliberate.
-export type DeferredAuthCoreOptions = Omit<AuthCoreOptions, AdapterSeam | 'deferredSeams'> &
-  Partial<Pick<AuthCoreOptions, AdapterSeam>> & { deferredSeams: readonly AdapterSeam[] };
+// The adapter seams become optional only for the names in `deferredSeams`: each K is omitted from the
+// required shape and re-added as optional, so a different missing adapter still fails to compile.
+export type DeferredAuthCoreOptions<K extends AdapterSeam = AdapterSeam> = Omit<
+  AuthCoreOptions,
+  K | 'deferredSeams'
+> &
+  Partial<Pick<AuthCoreOptions, K>> & { readonly deferredSeams: readonly K[] };
 
 // TypeScript catches a missing seam in a TS consumer; this catches one from JS or a spread, and
 // refuses to boot rather than run with an undefined adapter.
@@ -140,6 +144,8 @@ const deferSeam = (name: AdapterSeam): never =>
     {},
     {
       get: (_target, property) => {
+        // The marker lets ResetService tell a deferred sink from a real one that raised a config error.
+        if (property === DEFERRED_SEAM) return true;
         // A symbol probe is inspection, not use; only a named member is a seam call.
         if (typeof property === 'symbol') return undefined;
         return () => {
@@ -150,17 +156,19 @@ const deferSeam = (name: AdapterSeam): never =>
   ) as never;
 
 // A deferred seam is only replaced when it is actually absent: a provided adapter always wins.
-const resolveOptions = (
-  opts: AuthCoreOptions | DeferredAuthCoreOptions,
+const resolveOptions = <K extends AdapterSeam>(
+  opts: AuthCoreOptions | DeferredAuthCoreOptions<K>,
 ): { resolved: AuthCoreOptions; deferred: AdapterSeam[] } => {
   const declared = opts.deferredSeams ?? [];
-  for (const seam of declared) {
+  if (!Array.isArray(declared)) throw new AuthConfigError({ invalid: 'deferredSeams' });
+  const seams = declared as readonly AdapterSeam[];
+  for (const seam of seams) {
     if (!ADAPTER_SEAMS.includes(seam)) throw new AuthConfigError({ invalid: `deferredSeams.${String(seam)}` });
   }
 
   const resolved = { ...opts } as AuthCoreOptions;
   const deferred: AdapterSeam[] = [];
-  for (const seam of declared) {
+  for (const seam of seams) {
     if (resolved[seam] !== undefined && resolved[seam] !== null) continue;
     resolved[seam] = deferSeam(seam);
     deferred.push(seam);
@@ -239,9 +247,9 @@ const providersFor = (opts: AuthCoreOptions, deferred: readonly AdapterSeam[]): 
 
 @Module({})
 export class AuthCoreModule {
-  static forRoot(opts: AuthCoreOptions): DynamicModule;
-  static forRoot(opts: DeferredAuthCoreOptions): DynamicModule;
-  static forRoot(opts: AuthCoreOptions | DeferredAuthCoreOptions): DynamicModule {
+  static forRoot<K extends AdapterSeam = AdapterSeam>(
+    opts: AuthCoreOptions | DeferredAuthCoreOptions<K>,
+  ): DynamicModule {
     const { resolved, deferred } = resolveOptions(opts);
 
     return {
