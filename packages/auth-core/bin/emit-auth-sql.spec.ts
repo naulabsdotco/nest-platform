@@ -122,3 +122,101 @@ describe('emitAuthSql', () => {
     await expect(emitAuthSql({ destDir, utc14: '2026' })).rejects.toThrow(/utc14/i);
   });
 });
+
+describe('emitAuthSql options', () => {
+  it('renamed tables apply to the CREATE TABLE and the foreign key', async () => {
+    const destDir = await tempDir();
+
+    await emitAuthSql({ destDir, utc14: UTC14, tables: { subject: 'accounts', credential: 'user_credentials' } });
+
+    const subject = await readFile(join(destDir, `${UTC14}_subject.sql`), 'utf8');
+    const credential = await readFile(join(destDir, `${UTC14}_subject_credential.sql`), 'utf8');
+    expect(subject).toContain('CREATE TABLE accounts (');
+    expect(credential).toContain('CREATE TABLE user_credentials (');
+    expect(credential).toContain('accounts_id uuid PRIMARY KEY REFERENCES accounts (id)');
+    expect(credential).not.toMatch(/\bsubject(_credential)?\b/);
+  });
+
+  it('every foreign key and index name follows the table map', async () => {
+    const destDir = await tempDir();
+    const tables = {
+      subject: 'accounts',
+      credential: 'user_credentials',
+      refreshToken: 'sessions',
+      resetToken: 'resets',
+      loginAttempt: 'attempts',
+    };
+
+    await emitAuthSql({ destDir, utc14: UTC14, tables });
+
+    const read = (name: string): Promise<string> => readFile(join(destDir, `${UTC14}_${name}.sql`), 'utf8');
+    const sessions = await read('refresh_token');
+    const resets = await read('password_reset_token');
+    const attempts = await read('login_attempt');
+    expect(sessions).toContain('accounts_id uuid NOT NULL REFERENCES accounts (id)');
+    expect(sessions).toContain('CREATE UNIQUE INDEX sessions_token_hash_key ON sessions (token_hash)');
+    expect(sessions).toContain('CREATE INDEX sessions_live_subject_idx ON sessions (accounts_id)');
+    expect(resets).toContain('resets_live_subject_idx ON resets (accounts_id)');
+    expect(attempts).toContain('CREATE INDEX attempts_email_hash_at_idx ON attempts (email_hash, at)');
+    for (const sql of [sessions, resets, attempts]) {
+      expect(sql).not.toMatch(/\b(subject|subject_credential|refresh_token|password_reset_token|login_attempt)\b/);
+    }
+  });
+
+  it('disabled credential columns are absent and the remaining columns stay comma-separated', async () => {
+    const destDir = await tempDir();
+
+    await emitAuthSql({
+      destDir,
+      utc14: UTC14,
+      columns: { credential: { sourceUpdatedAt: false, failedCount: false, lockedUntil: false } },
+    });
+
+    const credential = await readFile(join(destDir, `${UTC14}_subject_credential.sql`), 'utf8');
+    expect(credential).not.toMatch(/source_updated_at|failed_count|locked_until/);
+    expect(credential).toContain('hash text NOT NULL');
+    expect(credential).not.toMatch(/,\s*\n\);/);
+  });
+
+  it('an omitted option keeps every emitted file byte-identical to the reference', async () => {
+    const destDir = await tempDir();
+
+    await emitAuthSql({ destDir, utc14: UTC14 });
+
+    for (const name of [
+      '0001_subject.sql',
+      '0002_subject_credential.sql',
+      '0003_refresh_token.sql',
+      '0004_password_reset_token.sql',
+      '0005_login_attempt.sql',
+    ]) {
+      const emitted = await readFile(join(destDir, `${UTC14}_${name.replace(/^\d{4}_/, '')}`), 'utf8');
+      expect(emitted).toBe(await sourceOf(name));
+    }
+  });
+
+  it('a partitioned login attempt declares the range on the requested column', async () => {
+    const destDir = await tempDir();
+
+    await emitAuthSql({ destDir, utc14: UTC14, loginAttempt: { partitioned: { by: 'range', column: 'at' } } });
+
+    const attempts = await readFile(join(destDir, `${UTC14}_login_attempt.sql`), 'utf8');
+    expect(attempts).toContain(') PARTITION BY RANGE (at);');
+  });
+
+  it('refuses a table name that could break out of the identifier', async () => {
+    const destDir = await tempDir();
+
+    await expect(
+      emitAuthSql({ destDir, utc14: UTC14, tables: { subject: 'accounts; drop table subject' } }),
+    ).rejects.toThrow(/tables\.subject/);
+  });
+
+  it('refuses a partition on a column the table does not have', async () => {
+    const destDir = await tempDir();
+
+    await expect(
+      emitAuthSql({ destDir, utc14: UTC14, loginAttempt: { partitioned: { by: 'range', column: 'missing' } } }),
+    ).rejects.toThrow(/missing/);
+  });
+});

@@ -174,14 +174,43 @@ stamps attempts, and `ResetService` owns the password policy.
 default) and both tokens store a SHA-256 `token_hash`, uniquely indexed. There is no scope or
 membership table; the scope model is the consumer's.
 
-`emitAuthSql({ destDir, utc14 })`, also runnable as
-`emit-auth-sql --dest <dir> --utc14 <14 digits>` (or
+`emitAuthSql({ destDir, utc14, ...shape })`, also runnable as
+`emit-auth-sql --dest <dir> --utc14 <14 digits> [--config <json>]` (or
 `node node_modules/@naulabsco/auth-core/bin/emit-auth-sql.mjs`), copies
-each file into the consumer's migration directory as `<utc14>_<name>.sql`. It never executes them and
-refuses to overwrite an existing target, so a second emit fails loudly instead of silently replacing a
-file; a write that fails midway removes the files that run created. **The consumer owns the migration**
-— its forward file, rollback, verification and schema assertions; the package never runs a migration or
-connects as an elevated role.
+each file into the consumer's migration directory as `<utc14>_<name>.sql`, in the reference order.
+It never executes them and refuses to overwrite an existing target, so a second emit fails loudly
+instead of silently replacing a file; a write that fails midway removes the files that run created.
+**The consumer owns the migration** — its forward file, rollback, verification and schema assertions;
+the package never runs a migration or connects as an elevated role.
+
+The optional `shape` renames tables, removes credential columns and partitions the attempt table. An
+omitted key keeps today's output byte-for-byte; the value must be a lowercase SQL identifier, because
+it is interpolated into the emitted SQL. Every identifier that carries a renamed table as a prefix
+follows it — `subject_id` columns and index names included — while the file names keep the reference
+names and the set is returned in reference order.
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `tables.subject` | `subject` | the subject table, and every `subject_*` column or index |
+| `tables.credential` | `subject_credential` | the credential table |
+| `tables.refreshToken` | `refresh_token` | the refresh table and its index names |
+| `tables.resetToken` | `password_reset_token` | the reset table and its index names |
+| `tables.loginAttempt` | `login_attempt` | the attempt table and its index name |
+| `columns.credential.sourceUpdatedAt` | `true` | keep `source_updated_at` |
+| `columns.credential.failedCount` | `true` | keep `failed_count` |
+| `columns.credential.lockedUntil` | `true` | keep `locked_until` |
+| `loginAttempt.partitioned` | absent | `{ by: 'range', column: 'at' }` adds `PARTITION BY RANGE` |
+
+```ts
+await emitAuthSql({
+  destDir, utc14,
+  tables: { subject: 'accounts', credential: 'user_credentials' },
+  columns: { credential: { failedCount: false } },
+  loginAttempt: { partitioned: { by: 'range', column: 'at' } },
+});
+```
+
+`--config` takes the same `tables`, `columns` and `loginAttempt` object from a JSON file.
 
 ## Release gate
 
