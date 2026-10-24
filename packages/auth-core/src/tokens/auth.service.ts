@@ -4,6 +4,7 @@ import { AuthInvalidCredentialsError, AuthScopeSelectionRequiredError, type Auth
 import type { AuthScope, AuthStore } from '../ports/auth-store';
 import type { RefreshService } from './refresh.service';
 import type { TokenService } from './token.service';
+import { sanitizeMetadata } from './request-metadata';
 
 export interface AuthServiceOptions {
   store: AuthStore;
@@ -64,8 +65,7 @@ export class AuthService {
     const { token: refreshToken } = await this.opts.refresh.issue({
       subjectId: credential.subjectId,
       scope: scope.scope,
-      userAgent: input.userAgent,
-      ip: input.ip,
+      ...sanitizeMetadata(input),
     });
     await this.record(input, 'success');
     return { accessToken, expiresIn, refreshToken, scope };
@@ -88,9 +88,10 @@ export class AuthService {
   }
 
   private async record(input: LoginInput, outcome: string, reason?: string): Promise<void> {
+    const { ip } = sanitizeMetadata(input);
     await this.opts.store.recordLoginAttempt({
       emailHash: sha256Hex(input.email),
-      ip: input.ip ?? '0.0.0.0',
+      ip: ip ?? '0.0.0.0',
       outcome,
       ...(reason === undefined ? {} : { reason }),
     });

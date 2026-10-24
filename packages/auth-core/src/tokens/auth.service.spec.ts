@@ -191,6 +191,24 @@ describe('AuthService.login', () => {
     expect(refresh.issued[0].ip).toBeUndefined();
   });
 
+  it('caps an oversized user agent and drops a malformed ip before the refresh row', async () => {
+    const store = new StoreFake();
+    store.seedCredential();
+    store.seedScopes([MEMBER]);
+    const refresh = new RefreshFake();
+
+    await serviceOver(store, new VerifierFake('correct'), refresh).login({
+      email: EMAIL,
+      password: 'correct',
+      userAgent: 'a'.repeat(600),
+      ip: '1.2.3.4, 5.6.7.8',
+    });
+
+    expect(refresh.issued[0].userAgent).toHaveLength(512);
+    expect(refresh.issued[0].ip).toBeUndefined();
+    expect(store.attempts[0].ip).toBe('0.0.0.0');
+  });
+
   it('an unknown email runs a dummy verify and returns the identical 401', async () => {
     const store = new StoreFake();
     const verifier = new VerifierFake('correct');

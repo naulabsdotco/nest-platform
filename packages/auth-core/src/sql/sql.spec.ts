@@ -48,6 +48,11 @@ describe('reference SQL', () => {
       'subject',
       'subject_credential',
     ]);
+
+    const { rows: refreshColumns } = await client.query<{ column_name: string }>(
+      "select column_name from information_schema.columns where table_name = 'refresh_token' order by column_name",
+    );
+    expect(refreshColumns.map((column) => column.column_name)).toContain('scope');
   }, 60_000);
 
   it('no plaintext credential or token column exists', async () => {

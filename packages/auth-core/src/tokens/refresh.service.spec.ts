@@ -144,9 +144,35 @@ describe('RefreshService.issue', () => {
 
     await service.issue({ subjectId: 'subject-1', familyId: 'family-1' });
     await service.issue({ subjectId: 'subject-1' });
+    await service.issue({ subjectId: 'subject-1', familyId: undefined });
 
     expect(store.savedInputs[0].familyId).toBe('family-1');
     expect(store.savedInputs[1].familyId).not.toBe('family-1');
+    expect(store.savedInputs[2].familyId).toEqual(expect.any(String));
+    expect(store.savedInputs[2].familyId).not.toBe('');
+  });
+
+  it('truncates an oversized user agent and drops an ip that is not an IP literal', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+
+    await serviceOver(store, time).issue({
+      subjectId: 'subject-1',
+      userAgent: 'a'.repeat(600),
+      ip: '1.2.3.4, 5.6.7.8',
+    });
+
+    expect(store.savedInputs[0].userAgent).toHaveLength(512);
+    expect(store.savedInputs[0].ip).toBeUndefined();
+  });
+
+  it('keeps a valid ip literal', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+
+    await serviceOver(store, time).issue({ subjectId: 'subject-1', ip: '2001:db8::1' });
+
+    expect(store.savedInputs[0].ip).toBe('2001:db8::1');
   });
 
   it('mints a distinct token and family per call', async () => {

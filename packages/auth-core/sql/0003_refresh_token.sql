@@ -3,6 +3,7 @@ CREATE TABLE refresh_token (
     subject_id uuid NOT NULL REFERENCES subject (id) ON DELETE CASCADE,
     token_hash text NOT NULL,
     family_id uuid NOT NULL,
+    scope text,
     issued_at timestamptz NOT NULL DEFAULT now(),
     expires_at timestamptz NOT NULL,
     used_at timestamptz,

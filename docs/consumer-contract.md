@@ -104,6 +104,8 @@ error-code map, the envelope and the seed stay with the consumer.
 | `ResetLinkSink` | `send({ email, token }): Promise<void>` — the consumer delivers the link |
 
 `AuthScope` is `{ subject, scope, role, active }`; the meaning of `scope` and `role` is the consumer's.
+`RefreshService.issue` caps the user agent at 512 characters and drops an ip that is not an IP literal;
+its `familyId` is server-side only and must never come from a request.
 `AuthStore.markRefreshUsed` must compare-and-set on `used_at IS NULL AND revoked_at IS NULL`. The
 reference SQL is emitted with `emitAuthSql`; the consumer owns its forward migration, rollback and
 verification.

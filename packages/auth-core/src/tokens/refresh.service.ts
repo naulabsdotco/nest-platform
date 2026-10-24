@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { AuthInvalidTokenError, AuthRefreshReuseDetectedError } from '../errors';
 import type { AuthStore, RefreshRecord } from '../ports/auth-store';
 import type { Clock } from '../ports/clock';
+import { sanitizeMetadata } from './request-metadata';
 
 export interface RefreshServiceOptions {
   store: AuthStore;
@@ -45,7 +46,11 @@ export class RefreshService {
   // A plain subject id is the original signature: it issues without request metadata.
   async issue(input: string | RefreshIssueInput): Promise<{ token: string; expiresAt: Date }> {
     const request = typeof input === 'string' ? { subjectId: input } : input;
-    return this.mint({ familyId: request.familyId ?? randomUUID(), ...request });
+    return this.mint({
+      ...request,
+      ...sanitizeMetadata(request),
+      familyId: request.familyId ?? randomUUID(),
+    });
   }
 
   async rotate(presented: string): Promise<RotatedRefresh> {
