@@ -58,6 +58,16 @@ describe('auth errors', () => {
     expect(new ReauthFailedError().code).toBe('AUTH_REAUTH_FAILED');
   });
 
+  it('a policy rejection keeps its code, 422 status and problems list through fromDomain', () => {
+    const problems = [{ rule: 'min-length', detail: '12' }];
+
+    const application = ApplicationError.fromDomain(new AuthPasswordPolicyError({ problems }), AUTH_ERROR_STATUS);
+
+    expect(application.code).toBe(AUTH_ERROR_CODES.AUTH_PASSWORD_POLICY);
+    expect(application.statusCode).toBe(422);
+    expect(application.criteria).toEqual({ problems });
+  });
+
   it('package-raised errors default to no criteria, so nothing secret is attached', () => {
     for (const [error] of failures) {
       expect(error.criteria).toBeUndefined();
