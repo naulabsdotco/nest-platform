@@ -101,6 +101,7 @@ error-code map, the envelope and the seed stay with the consumer.
 | `PermissionCatalogue` | `grantsFor(scope, role): Promise<ReadonlySet<string>>` |
 | `PasswordPolicy` | `validate(password): void \| Promise<void>` |
 | `Clock` | `now(): Date`, so expiry and reuse grace are testable |
+| `UnitOfWork` | optional `transaction(work)`: one transaction for the reset flow's consume, hash and revoke |
 | `ResetLinkSink` | `send({ email, token }): Promise<void>` — the consumer delivers the link |
 
 `AuthScope` is `{ subject, scope, role, active }`; the meaning of `scope` and `role` is the consumer's.

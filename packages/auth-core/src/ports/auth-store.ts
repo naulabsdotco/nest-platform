@@ -1,3 +1,5 @@
+import type { AuthTransaction } from './unit-of-work';
+
 export interface Principal {
   readonly sub: string;
 }
@@ -80,15 +82,16 @@ export interface AuthStore {
   // The package never calls it; a duplicate email or an unknown scope is refused with
   // AuthSubjectCreationFailedError.
   createSubject?(input: NewSubject): Promise<{ subjectId: string }>;
-  replaceCredentialHash(subjectId: string, hash: string): Promise<void>;
+  replaceCredentialHash(subjectId: string, hash: string, tx?: AuthTransaction): Promise<void>;
   issueRefresh(input: RefreshInput): Promise<RefreshRecord>;
   findRefreshByHash(tokenHash: string): Promise<RefreshRecord | null>;
   // Must compare-and-set on `used_at IS NULL AND revoked_at IS NULL`; a used or revoked row returns false.
   markRefreshUsed(id: string): Promise<boolean>;
   revokeRefreshFamily(familyId: string): Promise<void>;
-  revokeRefreshForSubjects(subjectIds: readonly string[]): Promise<void>;
+  revokeRefreshForSubjects(subjectIds: readonly string[], tx?: AuthTransaction): Promise<void>;
   issueResetToken(input: ResetInput): Promise<ResetRecord>;
-  findResetToken(tokenHash: string): Promise<ResetRecord | null>;
-  consumeResetToken(id: string): Promise<boolean>;
+  findResetToken(tokenHash: string, tx?: AuthTransaction): Promise<ResetRecord | null>;
+  // Consumes the given row and every other live row for the same subject, atomically.
+  consumeResetToken(id: string, tx?: AuthTransaction): Promise<boolean>;
   recordLoginAttempt(attempt: LoginAttempt): Promise<void>;
 }

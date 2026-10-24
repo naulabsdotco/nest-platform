@@ -5,6 +5,7 @@ import { AuthResetTokenConsumedError, AuthResetTokenExpiredError, AuthResetToken
 import type { AuthStore } from '../ports/auth-store';
 import type { Clock } from '../ports/clock';
 import type { PasswordPolicy } from '../ports/password-policy';
+import type { AuthTransaction, UnitOfWork } from '../ports/unit-of-work';
 
 export interface ResetLinkSink {
   send(input: { email: string; token: string }): Promise<void>;
@@ -17,6 +18,8 @@ export interface ResetServiceOptions {
   policy: PasswordPolicy;
   sink: ResetLinkSink;
   resetTtlMinutes: number;
+  // Without one, the three writes stay sequential and the adapter must make them atomic itself.
+  unitOfWork?: UnitOfWork;
 }
 
 const RESET_BYTES = 32;
@@ -56,10 +59,17 @@ export class ResetService {
     if (record === null) throw new AuthResetTokenInvalidError();
     if (record.expiresAt.getTime() <= this.opts.clock.now().getTime()) throw new AuthResetTokenExpiredError();
     if (record.consumedAt !== null) throw new AuthResetTokenConsumedError();
-    // The compare-and-set closes the gap between the read above and a concurrent consume.
-    if (!(await this.opts.store.consumeResetToken(record.id))) throw new AuthResetTokenConsumedError();
+    const hash = await this.opts.verifier.hash(newPassword);
 
-    await this.opts.store.replaceCredentialHash(record.subjectId, await this.opts.verifier.hash(newPassword));
-    await this.opts.store.revokeRefreshForSubjects([record.subjectId]);
+    const complete = async (tx?: AuthTransaction): Promise<void> => {
+      // The consume also spends every other live link for the subject, so one reset retires them all.
+      // The compare-and-set closes the gap between the read above and a concurrent consume.
+      if (!(await this.opts.store.consumeResetToken(record.id, tx))) throw new AuthResetTokenConsumedError();
+      await this.opts.store.replaceCredentialHash(record.subjectId, hash, tx);
+      await this.opts.store.revokeRefreshForSubjects([record.subjectId], tx);
+    };
+
+    if (this.opts.unitOfWork === undefined) return complete();
+    return this.opts.unitOfWork.transaction(complete);
   }
 }
