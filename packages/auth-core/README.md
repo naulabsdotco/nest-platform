@@ -126,17 +126,24 @@ only when a verified principal is present, so a missing JWT guard fails closed r
 
 ## Refresh
 
-`RefreshService.issue(subjectId)` mints 32 random bytes (base64url) and stores only their SHA-256 hex
-with a fresh `familyId`. `rotate(presented)` hashes the presented token and looks the hash up — no
-plaintext column exists. A live token is marked used atomically and replaced in the same family. A
-token consumed within `reuseGraceSeconds` re-issues in the family without revoking, because the
-plaintext is never stored, so the re-issue is a new token rather than the same one. A token consumed
-outside the grace, or one already revoked, revokes the entire family and throws
-`AuthRefreshReuseDetectedError`, and a consumed token is judged for reuse before expiry, so a replay
-after expiry still revokes. An expired token that was never used, or an unknown one, throws
-`AuthInvalidTokenError`. Losing the `markRefreshUsed` compare-and-set re-reads the row and applies the
-same grace. After a successful rotation the service re-reads the presented row: if a concurrent logout
-revoked the family, it revokes it again — which also kills the row just minted — and throws.
+`RefreshService.issue({ subjectId, scope?, userAgent?, ip?, familyId? })` mints 32 random bytes
+(base64url) and stores only their SHA-256 hex. A fresh `familyId` is minted unless one is supplied;
+`familyId` is for the package's own rotation and must never be taken from a request, or a caller could
+attach a row to another subject's family. `login` forwards the resolved scope and the request's user
+agent and ip, and a value the caller omits is stored as null by the adapter. The user agent is capped at
+512 characters and an ip that is not an IP literal is dropped, so neither header can amplify storage or
+fail the write after the access token was minted. `issue('subject-id')` remains valid and carries no
+request metadata. `rotate(presented)` hashes the presented token and looks the hash up — no plaintext
+column exists. A live token is marked used atomically and replaced in the same family, which also
+continues the row's `scope`, so a rotated token never forces a new selection. A token consumed within
+`reuseGraceSeconds` re-issues in the family without revoking, because the plaintext is never stored,
+so the re-issue is a new token rather than the same one. A token consumed outside the grace, or one
+already revoked, revokes the entire family and throws `AuthRefreshReuseDetectedError`, and a consumed
+token is judged for reuse before expiry, so a replay after expiry still revokes. An expired token that
+was never used, or an unknown one, throws `AuthInvalidTokenError`. Losing the `markRefreshUsed`
+compare-and-set re-reads the row and applies the same grace. After a successful rotation the service
+re-reads the presented row: if a concurrent logout revoked the family, it revokes it again — which
+also kills the row just minted — and throws.
 
 The store's `markRefreshUsed` must compare-and-set on `used_at IS NULL AND revoked_at IS NULL`. That
 CAS closes the read/CAS race; the post-rotation re-read is a compensating check. An adapter that needs
@@ -164,8 +171,8 @@ sends — so it is a result guarantee, not a timing guarantee.
 
 ## Login
 
-`AuthService.login({ email, password, scope?, ip? })` verifies the credential and returns the access
-token, the refresh token and the resolved `AuthScope`. Every credential failure is the same
+`AuthService.login({ email, password, scope?, ip?, userAgent? })` verifies the credential and returns
+the access token, the refresh token and the resolved `AuthScope`. Every credential failure is the same
 `AuthInvalidCredentialsError`, and an unknown email still runs `verifyDummy`, so it does not answer
 faster than a wrong password. A `rehash` from the verifier replaces the stored hash. A subject with
 one scope gets it; with several, a missing selection throws `AuthScopeSelectionRequiredError` (400),
@@ -191,8 +198,9 @@ No plaintext password reaches the port: the consumer hashes it and passes `{ alg
 `packages/auth-core/sql/` ships five forward-only files — `subject`, `subject_credential`,
 `refresh_token`, `password_reset_token` and `login_attempt` — that apply cleanly to a stock
 `postgres:17`. No plaintext credential or token column exists: a credential stores `hash` (argon2id by
-default) and both tokens store a SHA-256 `token_hash`, uniquely indexed. There is no scope or
-membership table; the scope model is the consumer's.
+default) and both tokens store a SHA-256 `token_hash`, uniquely indexed. The refresh row also carries
+the nullable `scope`, `user_agent` and `ip` that `RefreshInput` supplies, so rotation can continue the
+chosen scope. There is no scope or membership table; the scope model is the consumer's.
 
 `emitAuthSql({ destDir, utc14, ...shape })`, also runnable as
 `emit-auth-sql --dest <dir> --utc14 <14 digits> [--config <json>] [--check] [--direction up|down|both] [--verify]`

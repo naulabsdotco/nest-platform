@@ -61,6 +61,8 @@ peer dependency.
 ```ts
 class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule }
 class AuthService { /* login / refresh / logout; login returns tokens plus the resolved scope */ }
+interface RefreshIssueInput { subjectId: string; scope?: string; userAgent?: string; ip?: string; familyId?: string }
+class RefreshService { issue(input: string | RefreshIssueInput): Promise<{ token: string; expiresAt: Date }> }
 const PUBLIC_KEY, AUTHENTICATED_KEY, PERMISSION_KEY: string;
 function Public(): MethodDecorator & ClassDecorator;
 function Authenticated(): MethodDecorator & ClassDecorator;
@@ -102,6 +104,8 @@ error-code map, the envelope and the seed stay with the consumer.
 | `ResetLinkSink` | `send({ email, token }): Promise<void>` — the consumer delivers the link |
 
 `AuthScope` is `{ subject, scope, role, active }`; the meaning of `scope` and `role` is the consumer's.
+`RefreshService.issue` caps the user agent at 512 characters and drops an ip that is not an IP literal;
+its `familyId` is server-side only and must never come from a request.
 `AuthStore.markRefreshUsed` must compare-and-set on `used_at IS NULL AND revoked_at IS NULL`. The
 reference SQL is emitted with `emitAuthSql`; the consumer owns its forward migration, rollback and
 verification.

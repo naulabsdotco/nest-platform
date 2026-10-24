@@ -96,11 +96,21 @@ class VerifierFake {
 }
 
 class RefreshFake {
-  readonly issued: string[] = [];
+  readonly issued: Array<{
+    subjectId: string;
+    scope?: string;
+    userAgent?: string;
+    ip?: string;
+    familyId?: string;
+  }> = [];
 
-  async issue(subjectId: string): Promise<{ token: string; expiresAt: Date }> {
-    this.issued.push(subjectId);
-    return { token: `refresh:${subjectId}`, expiresAt: new Date('2026-11-01T00:00:00.000Z') };
+  async issue(input: string | { subjectId: string; scope?: string; userAgent?: string; ip?: string; familyId?: string }): Promise<{
+    token: string;
+    expiresAt: Date;
+  }> {
+    const request = typeof input === 'string' ? { subjectId: input } : input;
+    this.issued.push(request);
+    return { token: `refresh:${request.subjectId}`, expiresAt: new Date('2026-11-01T00:00:00.000Z') };
   }
 
   async rotate(): Promise<{ accessInput: { familyId: string; subjectId: string }; refreshToken: string }> {
@@ -147,6 +157,56 @@ describe('AuthService.login', () => {
       refreshToken: `refresh:${SUBJECT}`,
       scope: MEMBER,
     });
+  });
+
+  it('forwards the resolved scope, user agent and ip to the refresh row', async () => {
+    const store = new StoreFake();
+    store.seedCredential();
+    store.seedScopes([MEMBER, ADMIN]);
+    const refresh = new RefreshFake();
+
+    await serviceOver(store, new VerifierFake('correct'), refresh).login({
+      email: EMAIL,
+      password: 'correct',
+      scope: ADMIN.scope,
+      ip: '203.0.113.7',
+      userAgent: 'agent/1',
+    });
+
+    expect(refresh.issued).toEqual([
+      { subjectId: SUBJECT, scope: 'other-app', userAgent: 'agent/1', ip: '203.0.113.7' },
+    ]);
+  });
+
+  it('login without ip or user agent leaves them unset on the refresh row', async () => {
+    const store = new StoreFake();
+    store.seedCredential();
+    store.seedScopes([MEMBER]);
+    const refresh = new RefreshFake();
+
+    await serviceOver(store, new VerifierFake('correct'), refresh).login({ email: EMAIL, password: 'correct' });
+
+    expect(refresh.issued[0]).toMatchObject({ subjectId: SUBJECT, scope: 'example-app' });
+    expect(refresh.issued[0].userAgent).toBeUndefined();
+    expect(refresh.issued[0].ip).toBeUndefined();
+  });
+
+  it('caps an oversized user agent and drops a malformed ip before the refresh row', async () => {
+    const store = new StoreFake();
+    store.seedCredential();
+    store.seedScopes([MEMBER]);
+    const refresh = new RefreshFake();
+
+    await serviceOver(store, new VerifierFake('correct'), refresh).login({
+      email: EMAIL,
+      password: 'correct',
+      userAgent: 'a'.repeat(600),
+      ip: '1.2.3.4, 5.6.7.8',
+    });
+
+    expect(refresh.issued[0].userAgent).toHaveLength(512);
+    expect(refresh.issued[0].ip).toBeUndefined();
+    expect(store.attempts[0].ip).toBe('0.0.0.0');
   });
 
   it('an unknown email runs a dummy verify and returns the identical 401', async () => {

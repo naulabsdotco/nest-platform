@@ -37,6 +37,7 @@ class RefreshStore {
       expiresAt: input.expiresAt,
       usedAt: null,
       revokedAt: null,
+      scope: input.scope ?? null,
     };
     this.rows.set(input.tokenHash, record);
     return record;
@@ -106,6 +107,74 @@ describe('RefreshService.issue', () => {
     expect(JSON.stringify(store.savedInputs)).not.toContain(token);
   });
 
+  it('carries scope, user agent and ip into the refresh row', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+
+    await serviceOver(store, time).issue({
+      subjectId: 'subject-1',
+      scope: 'example-app',
+      userAgent: 'agent/1',
+      ip: '203.0.113.7',
+    });
+
+    expect(store.savedInputs[0]).toMatchObject({
+      subjectId: 'subject-1',
+      scope: 'example-app',
+      userAgent: 'agent/1',
+      ip: '203.0.113.7',
+    });
+  });
+
+  it('leaves missing metadata unset so the adapter stores nulls', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+
+    await serviceOver(store, time).issue({ subjectId: 'subject-1' });
+
+    expect(store.savedInputs[0].scope).toBeUndefined();
+    expect(store.savedInputs[0].userAgent).toBeUndefined();
+    expect(store.savedInputs[0].ip).toBeUndefined();
+  });
+
+  it('reuses a supplied familyId and mints a fresh one when it is omitted', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+    const service = serviceOver(store, time);
+
+    await service.issue({ subjectId: 'subject-1', familyId: 'family-1' });
+    await service.issue({ subjectId: 'subject-1' });
+    await service.issue({ subjectId: 'subject-1', familyId: undefined });
+
+    expect(store.savedInputs[0].familyId).toBe('family-1');
+    expect(store.savedInputs[1].familyId).not.toBe('family-1');
+    expect(store.savedInputs[2].familyId).toEqual(expect.any(String));
+    expect(store.savedInputs[2].familyId).not.toBe('');
+  });
+
+  it('truncates an oversized user agent and drops an ip that is not an IP literal', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+
+    await serviceOver(store, time).issue({
+      subjectId: 'subject-1',
+      userAgent: 'a'.repeat(600),
+      ip: '1.2.3.4, 5.6.7.8',
+    });
+
+    expect(store.savedInputs[0].userAgent).toHaveLength(512);
+    expect(store.savedInputs[0].ip).toBeUndefined();
+  });
+
+  it('keeps a valid ip literal', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+
+    await serviceOver(store, time).issue({ subjectId: 'subject-1', ip: '2001:db8::1' });
+
+    expect(store.savedInputs[0].ip).toBe('2001:db8::1');
+  });
+
   it('mints a distinct token and family per call', async () => {
     const time = clock();
     const store = new RefreshStore(time);
@@ -134,6 +203,19 @@ describe('RefreshService.rotate', () => {
     expect(store.usedIds).toEqual(['row-1']);
     expect(store.savedInputs.map((input) => input.familyId)).toEqual([familyId, familyId]);
     expect(store.revokedFamilies).toEqual([]);
+  });
+
+  it('rotation reuses the family and its scope without a new selection', async () => {
+    const time = clock();
+    const store = new RefreshStore(time);
+    const service = serviceOver(store, time);
+    const { token } = await service.issue({ subjectId: 'subject-1', scope: 'example-app' });
+    const { familyId } = store.savedInputs[0];
+
+    const rotated = await service.rotate(token);
+
+    expect(rotated.accessInput).toEqual({ familyId, subjectId: 'subject-1' });
+    expect(store.savedInputs[1]).toMatchObject({ familyId, subjectId: 'subject-1', scope: 'example-app' });
   });
 
   it('a consumed refresh outside the grace revokes the whole family and throws', async () => {
