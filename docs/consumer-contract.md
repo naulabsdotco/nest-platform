@@ -61,6 +61,8 @@ peer dependency.
 ```ts
 class AuthCoreModule { static forRoot(opts: AuthCoreOptions): DynamicModule }
 class AuthService { /* login / refresh / logout; login returns tokens plus the resolved scope */ }
+interface RefreshIssueInput { subjectId: string; scope?: string; userAgent?: string; ip?: string; familyId?: string }
+class RefreshService { issue(input: string | RefreshIssueInput): Promise<{ token: string; expiresAt: Date }> }
 const PUBLIC_KEY, AUTHENTICATED_KEY, PERMISSION_KEY: string;
 function Public(): MethodDecorator & ClassDecorator;
 function Authenticated(): MethodDecorator & ClassDecorator;

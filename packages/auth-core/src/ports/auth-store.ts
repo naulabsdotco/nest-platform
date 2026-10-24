@@ -23,6 +23,8 @@ export interface RefreshRecord {
   readonly expiresAt: Date;
   readonly usedAt: Date | null;
   readonly revokedAt: Date | null;
+  // The scope chosen at login; rotation continues it without a new selection.
+  readonly scope?: string | null;
 }
 
 export interface ResetRecord {
@@ -44,6 +46,8 @@ export interface RefreshInput {
   readonly tokenHash: string;
   readonly familyId: string;
   readonly expiresAt: Date;
+  // Request context; the adapter stores null when one is absent.
+  readonly scope?: string;
   readonly userAgent?: string;
   readonly ip?: string;
 }

@@ -17,6 +17,7 @@ export interface LoginInput {
   password: string;
   scope?: string;
   ip?: string;
+  userAgent?: string;
 }
 
 export interface LoginResult {
@@ -59,7 +60,13 @@ export class AuthService {
     }
 
     const { accessToken, expiresIn } = this.opts.tokens.issueAccess(credential.subjectId);
-    const { token: refreshToken } = await this.opts.refresh.issue(credential.subjectId);
+    // The resolved scope, not the requested selector, is what the refresh row carries.
+    const { token: refreshToken } = await this.opts.refresh.issue({
+      subjectId: credential.subjectId,
+      scope: scope.scope,
+      userAgent: input.userAgent,
+      ip: input.ip,
+    });
     await this.record(input, 'success');
     return { accessToken, expiresIn, refreshToken, scope };
   }

@@ -11,9 +11,25 @@ export interface RefreshServiceOptions {
   refreshTtlSeconds: number;
 }
 
+export interface RefreshIssueInput {
+  subjectId: string;
+  scope?: string;
+  userAgent?: string;
+  ip?: string;
+  familyId?: string;
+}
+
 export interface RotatedRefresh {
   accessInput: { familyId: string; subjectId: string };
   refreshToken: string;
+}
+
+interface MintInput {
+  familyId: string;
+  subjectId: string;
+  scope?: string;
+  userAgent?: string;
+  ip?: string;
 }
 
 const REFRESH_BYTES = 32;
@@ -26,8 +42,10 @@ export class RefreshService {
 
   constructor(private readonly opts: RefreshServiceOptions) {}
 
-  async issue(subjectId: string): Promise<{ token: string; expiresAt: Date }> {
-    return this.mint(randomUUID(), subjectId);
+  // A plain subject id is the original signature: it issues without request metadata.
+  async issue(input: string | RefreshIssueInput): Promise<{ token: string; expiresAt: Date }> {
+    const request = typeof input === 'string' ? { subjectId: input } : input;
+    return this.mint({ familyId: request.familyId ?? randomUUID(), ...request });
   }
 
   async rotate(presented: string): Promise<RotatedRefresh> {
@@ -57,10 +75,13 @@ export class RefreshService {
     return rotated;
   }
 
-  private async mint(familyId: string, subjectId: string): Promise<{ token: string; expiresAt: Date }> {
+  private async mint({ familyId, subjectId, scope, userAgent, ip }: MintInput): Promise<{
+    token: string;
+    expiresAt: Date;
+  }> {
     const token = randomBytes(REFRESH_BYTES).toString('base64url');
     const expiresAt = new Date(this.opts.clock.now().getTime() + this.opts.refreshTtlSeconds * 1000);
-    await this.opts.store.issueRefresh({ subjectId, tokenHash: hashToken(token), familyId, expiresAt });
+    await this.opts.store.issueRefresh({ subjectId, tokenHash: hashToken(token), familyId, expiresAt, scope, userAgent, ip });
     return { token, expiresAt };
   }
 
@@ -77,9 +98,14 @@ export class RefreshService {
     return this.rotateInto(record);
   }
 
-  private async rotateInto(record: Pick<RefreshRecord, 'familyId' | 'subjectId'>): Promise<RotatedRefresh> {
+  private async rotateInto(record: Pick<RefreshRecord, 'familyId' | 'subjectId' | 'scope'>): Promise<RotatedRefresh> {
     // The plaintext is never stored, so even a within-grace re-issue mints a fresh token in the family.
-    const { token } = await this.mint(record.familyId, record.subjectId);
+    const { token } = await this.mint({
+      familyId: record.familyId,
+      subjectId: record.subjectId,
+      // The rotation continues the family's scope; it must not force a new selection.
+      scope: record.scope ?? undefined,
+    });
     return { accessInput: { familyId: record.familyId, subjectId: record.subjectId }, refreshToken: token };
   }
 
