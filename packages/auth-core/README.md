@@ -41,6 +41,7 @@ A consumer supplies the adapters; the package never compiles one in. The package
 | `PermissionCatalogue` | the grants for a `scope` + `role` pair |
 | `PasswordPolicy` | whether a candidate password is acceptable |
 | `Clock` | "now", so expiry and reuse grace are testable |
+| `UnitOfWork` | optional: one transaction around the reset flow's consume, hash and revoke |
 
 `AuthScope` is `{ subject, scope, role, active }`; the meaning of `scope` and `role` is the consumer's.
 
@@ -159,15 +160,20 @@ the token to the injected `ResetLinkSink`; an unknown address writes nothing and
 send is logged as `auth.reset.link_failed` and swallowed so it cannot become an enumeration oracle.
 `resetPassword(token, newPassword)` runs the `PasswordPolicy` before touching any state, then consumes
 the token through a compare-and-set: a second consume throws `AuthResetTokenConsumedError`, an expired
-one throws `AuthResetTokenExpiredError`. On success it stores an argon2id hash and revokes every refresh
-family for the subject. The token is never a JWT, and only its hash reaches the store.
+one throws `AuthResetTokenExpiredError`. A successful consume also spends **every other live link for
+the subject**, so an older email cannot be replayed after a reset. On success it stores an argon2id
+hash and revokes every refresh family for the subject. The token is never a JWT, and only its hash
+reaches the store.
 
-`consumeResetToken`, `replaceCredentialHash` and `revokeRefreshForSubjects` are three independent port
-calls with no transaction seam: if the store fails between them, the token may be spent without the
-password changing, or the password may change while a refresh family survives. An adapter that needs
-all-or-nothing must make those three writes atomic itself. The result of `forgotPassword` is identical
-for a known and an unknown address, but the timing is not constant — the known path also writes and
-sends — so it is a result guarantee, not a timing guarantee.
+`unitOfWork` makes the consume, the hash replacement and the refresh revocation one transaction:
+`ResetService` calls `unitOfWork.transaction(work)` with an opaque `AuthTransaction`, and the store
+methods it uses take that value as their optional trailing argument. The adapter must run the four
+calls on the same transaction, make `consumeResetToken` spend every live row for the subject in one
+statement, and roll back on any throw. Without a `UnitOfWork` the three writes stay sequential and the
+adapter must make them atomic itself: a failure between them can spend the token without changing the
+password, or change the password while a refresh family survives. The result of `forgotPassword` is
+identical for a known and an unknown address, but the timing is not constant — the known path also
+writes and sends — so it is a result guarantee, not a timing guarantee.
 
 ## Login
 

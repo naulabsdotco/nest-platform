@@ -22,6 +22,7 @@ import type { Clock } from './ports/clock';
 import type { PasswordPolicy } from './ports/password-policy';
 import type { PermissionCatalogue } from './ports/permission-catalogue';
 import type { ScopeResolver } from './ports/scope-resolver';
+import type { UnitOfWork } from './ports/unit-of-work';
 import { AuthService } from './tokens/auth.service';
 import { RefreshService } from './tokens/refresh.service';
 import { ResetService, type ResetLinkSink } from './tokens/reset.service';
@@ -46,6 +47,7 @@ export interface AuthCoreOptions {
   refreshTtlSeconds: number;
   resetTtlMinutes: number;
   codes?: Partial<AuthCodeMap>;
+  unitOfWork?: UnitOfWork;
   guardPipeline?: GuardPipeline;
 }
 
@@ -149,6 +151,7 @@ const providersFor = (opts: AuthCoreOptions): Provider[] => {
           policy: options.passwordPolicy,
           sink: options.resetLinkSink,
           resetTtlMinutes: options.resetTtlMinutes,
+          unitOfWork: options.unitOfWork,
         }),
       inject: [AUTH_OPTIONS, PASSWORD_VERIFIER],
     },

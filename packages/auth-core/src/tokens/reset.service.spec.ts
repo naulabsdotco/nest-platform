@@ -10,6 +10,7 @@ import {
 import type { AuthStore, ResetInput, ResetRecord, StoredCredential } from '../ports/auth-store';
 import type { Clock } from '../ports/clock';
 import type { PasswordPolicy } from '../ports/password-policy';
+import type { AuthTransaction, UnitOfWork } from '../ports/unit-of-work';
 import type { PasswordVerifier } from '../crypto/password-verifier';
 import { ResetService, type ResetLinkSink } from './reset.service';
 
@@ -29,9 +30,30 @@ class ResetStore {
   readonly issued: ResetInput[] = [];
   readonly replaced: Array<{ subjectId: string; hash: string }> = [];
   readonly revokedSubjects: string[][] = [];
+  failReplace = false;
   private readonly resets = new Map<string, ResetRecord>();
   private readonly credentials = new Map<string, StoredCredential>();
   private seq = 0;
+
+  readonly unitOfWork: UnitOfWork = {
+    transaction: async (work) => {
+      const resets = new Map(this.resets);
+      const credentials = new Map(this.credentials);
+      const replaced = [...this.replaced];
+      const revoked = [...this.revokedSubjects];
+      try {
+        return await work({} as AuthTransaction);
+      } catch (error) {
+        this.resets.clear();
+        for (const [hash, record] of resets) this.resets.set(hash, record);
+        this.credentials.clear();
+        for (const [email, credential] of credentials) this.credentials.set(email, credential);
+        this.replaced.splice(0, this.replaced.length, ...replaced);
+        this.revokedSubjects.splice(0, this.revokedSubjects.length, ...revoked);
+        throw error;
+      }
+    },
+  };
 
   constructor(private readonly clock: Clock) {}
 
@@ -59,17 +81,18 @@ class ResetStore {
     return this.resets.get(tokenHash) ?? null;
   }
 
+  // Consumes every live row for the subject, not only the presented one.
   async consumeResetToken(id: string): Promise<boolean> {
+    const target = [...this.resets.values()].find((record) => record.id === id);
+    if (target === undefined || target.consumedAt !== null) return false;
     for (const [hash, record] of this.resets) {
-      if (record.id !== id) continue;
-      if (record.consumedAt !== null) return false;
-      this.resets.set(hash, { ...record, consumedAt: this.clock.now() });
-      return true;
+      if (record.subjectId === target.subjectId) this.resets.set(hash, { ...record, consumedAt: this.clock.now() });
     }
-    return false;
+    return true;
   }
 
   async replaceCredentialHash(subjectId: string, hash: string): Promise<void> {
+    if (this.failReplace) throw new Error('replace failed');
     this.replaced.push({ subjectId, hash });
     for (const [email, credential] of this.credentials) {
       if (credential.subjectId === subjectId) this.credentials.set(email, { ...credential, hash });
@@ -117,7 +140,12 @@ const sha256 = (value: string): string => createHash('sha256').update(value).dig
 
 const clock = (): MutableClock => new MutableClock(new Date('2026-10-19T00:00:00.000Z'));
 
-const serviceOver = (store: ResetStore, time: MutableClock, sink: ResetLinkSink): ResetService =>
+const serviceOver = (
+  store: ResetStore,
+  time: MutableClock,
+  sink: ResetLinkSink,
+  unitOfWork?: UnitOfWork,
+): ResetService =>
   new ResetService({
     store: store.asStore(),
     clock: time,
@@ -125,6 +153,7 @@ const serviceOver = (store: ResetStore, time: MutableClock, sink: ResetLinkSink)
     policy,
     sink,
     resetTtlMinutes: 20,
+    ...(unitOfWork === undefined ? {} : { unitOfWork }),
   });
 
 afterEach(() => {
@@ -248,5 +277,41 @@ describe('ResetService.resetPassword', () => {
 
     await expect(service.resetPassword(token, 'a-good-password')).resolves.toBeUndefined();
     expect(store.replaced).toEqual([{ subjectId: 'subject-1', hash: 'argon2id$a-good-password' }]);
+  });
+
+  it('an injected failure after the consume rolls the token and the hash back together', async () => {
+    const time = clock();
+    const store = new ResetStore(time);
+    const sink = new RecordingSink();
+    const service = serviceOver(store, time, sink, store.unitOfWork);
+    const token = await knownToken(store, sink, time);
+    store.failReplace = true;
+
+    await expect(service.resetPassword(token, 'a-good-password')).rejects.toThrow('replace failed');
+
+    expect((await store.findResetToken(sha256(token)))?.consumedAt).toBeNull();
+    expect(store.credentialHash('subject@example.com')).toBe('argon2id$old');
+
+    store.failReplace = false;
+    await expect(service.resetPassword(token, 'a-good-password')).resolves.toBeUndefined();
+    expect(store.credentialHash('subject@example.com')).toBe('argon2id$a-good-password');
+  });
+
+  it('a successful reset consumes every live link for the subject', async () => {
+    const time = clock();
+    const store = new ResetStore(time);
+    const sink = new RecordingSink();
+    const service = serviceOver(store, time, sink, store.unitOfWork);
+    const first = await knownToken(store, sink, time);
+    await service.forgotPassword('subject@example.com');
+    const second = sink.sent[1].token;
+    expect(second).not.toBe(first);
+
+    await service.resetPassword(first, 'a-good-password');
+
+    expect((await store.findResetToken(sha256(second)))?.consumedAt).not.toBeNull();
+    await expect(service.resetPassword(second, 'another-good-password')).rejects.toBeInstanceOf(
+      AuthResetTokenConsumedError,
+    );
   });
 });
