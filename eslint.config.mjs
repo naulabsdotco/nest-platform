@@ -3,11 +3,11 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 // `**/src/**` catches a relative import across packages (e.g. `../../config/src/index`);
-// the two `@naulabs/*` groups catch the bare and slash forms a named deep import takes.
+// the two `@naulabsco/*` groups catch the bare and slash forms a named deep import takes.
 export const deepImportPatterns = [
   {
-    group: ['@naulabs/*/src', '@naulabs/*/src/*', '@naulabs/*/dist', '@naulabs/*/dist/*', '**/src/**'],
-    message: 'Import the package root (@naulabs/<name>); deep paths and raw sources are not public.',
+    group: ['@naulabsco/*/src', '@naulabsco/*/src/*', '@naulabsco/*/dist', '@naulabsco/*/dist/*', '**/src/**'],
+    message: 'Import the package root (@naulabsco/<name>); deep paths and raw sources are not public.',
   },
 ];
 

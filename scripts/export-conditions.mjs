@@ -25,8 +25,8 @@ export function typeMismatches(esm, cjs) {
 export function checkExports(name, pkg, packageDir) {
   const entry = pkg.exports?.['.'] ?? {};
   const problems = [];
-  if (entry['@naulabs/source'] !== './src/index.ts') {
-    problems.push(`${name}: @naulabs/source must point at ./src/index.ts`);
+  if (entry['@naulabsco/source'] !== './src/index.ts') {
+    problems.push(`${name}: @naulabsco/source must point at ./src/index.ts`);
   }
   for (const condition of ['import', 'require']) {
     const target = entry[condition];

@@ -1,6 +1,6 @@
 # nest-platform — agent guide
 
-A public, MIT-licensed set of NestJS building blocks published to npm as `@naulabs/*`. This file is
+A public, MIT-licensed set of NestJS building blocks published to npm as `@naulabsco/*`. This file is
 the repo convention; it is not a copy of the spec. Read [`docs/spec.md`](docs/spec.md) for what the
 packages are.
 
@@ -45,7 +45,7 @@ a bare `new Error(...)` from a guard or adapter.
 
 ## Packaging
 
-Each package ships **dual ESM + CJS**. `exports` carries `import`, `require` and the `@naulabs/source`
+Each package ships **dual ESM + CJS**. `exports` carries `import`, `require` and the `@naulabsco/source`
 dev condition, each with a `dist` fallback; the build emits both formats plus declaration files and
 source maps. `pack-smoke` must `require()` **and** `import` every packed tarball.
 
@@ -56,7 +56,7 @@ Prefer a dependency over a hand-rolled abstraction: Nest built-ins, `passport-jw
 dependency. **Few comments**: only what the code cannot say — a non-obvious invariant, a trap, a
 rejected alternative. Tiebreak is delete.
 
-## Auth security invariants (`@naulabs/auth-core`)
+## Auth security invariants (`@naulabsco/auth-core`)
 
 - JWT strategy pins `algorithms`, `issuer`, `audience` and `ignoreExpiration: false`; all four are
   **required** options. `validate()` returns `{ sub }` only.
@@ -81,8 +81,8 @@ and its schema assertions.
 
 Semver + changesets; the four packages share one version so a partial upgrade cannot happen.
 Consumers pin exact versions; upgrades arrive as bot PRs. Publishing targets **public npm** under
-`@naulabs/*` with provenance. A bot pull request from `changeset-release/main` carries the version
-commit; nothing pushes to `main` directly. Three steps are manual and human-owned: the `@naulabs` npm
+`@naulabsco/*` with provenance. A bot pull request from `changeset-release/main` carries the version
+commit; nothing pushes to `main` directly. Three steps are manual and human-owned: the `@naulabsco` npm
 organisation must exist, an `NPM_TOKEN` repository secret must be set, and a fine-grained `RELEASE_TOKEN`
 (contents + pull-requests write) must be set so CI runs on the release pull request. Actions must also
 be allowed to create pull requests at organisation and repository level. A release ticket says so.

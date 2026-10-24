@@ -1,4 +1,4 @@
-import { DomainError, type StatusMap } from '@naulabs/errors';
+import { DomainError, type StatusMap } from '@naulabsco/errors';
 
 export const AUTH_ERROR_CODES = {
   AUTH_INVALID_TOKEN: 'AUTH_INVALID_TOKEN',

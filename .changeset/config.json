@@ -4,10 +4,10 @@
   "commit": false,
   "fixed": [
     [
-      "@naulabs/config",
-      "@naulabs/logging",
-      "@naulabs/errors",
-      "@naulabs/auth-core"
+      "@naulabsco/config",
+      "@naulabsco/logging",
+      "@naulabsco/errors",
+      "@naulabsco/auth-core"
     ]
   ],
   "access": "public",

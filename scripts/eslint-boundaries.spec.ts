@@ -32,8 +32,8 @@ describe('eslint package boundaries', () => {
   });
 
   it('rejects a bare, slashed and relative deep import', () => {
-    expect(lint("import x from '@naulabs/config/src';", port, portRules)).toContain('no-restricted-imports');
-    expect(lint("import x from '@naulabs/config/src/index';", port, portRules)).toContain('no-restricted-imports');
+    expect(lint("import x from '@naulabsco/config/src';", port, portRules)).toContain('no-restricted-imports');
+    expect(lint("import x from '@naulabsco/config/src/index';", port, portRules)).toContain('no-restricted-imports');
     expect(lint("import x from '../../../config/src/index';", port, portRules)).toContain('no-restricted-imports');
   });
 
@@ -43,12 +43,12 @@ describe('eslint package boundaries', () => {
 
   it('rejects a deep import outside ports', () => {
     expect(
-      lint("import x from '@naulabs/config/src/index';", 'packages/config/src/index.ts', sourceRules),
+      lint("import x from '@naulabsco/config/src/index';", 'packages/config/src/index.ts', sourceRules),
     ).toContain('no-restricted-imports');
   });
 
   it('allows a package root and a node builtin', () => {
-    expect(lint("import x from '@naulabs/config';\nimport p from 'node:path';", port, portRules)).toEqual([]);
+    expect(lint("import x from '@naulabsco/config';\nimport p from 'node:path';", port, portRules)).toEqual([]);
   });
 
   it('keeps the boundary rules wired into the default config', () => {

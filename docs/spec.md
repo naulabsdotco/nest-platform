@@ -4,8 +4,8 @@
 | --- | --- |
 | **Status** | Proposed |
 | **License** | MIT |
-| **Registry** | public npm, scope `@naulabs` |
-| **Packages** | `@naulabs/config`, `@naulabs/logging`, `@naulabs/errors`, `@naulabs/auth-core` |
+| **Registry** | public npm, scope `@naulabsco` |
+| **Packages** | `@naulabsco/config`, `@naulabsco/logging`, `@naulabsco/errors`, `@naulabsco/auth-core` |
 ## 1. Objective
 
 Publish the shared mechanism two or more NestJS products would otherwise each rebuild — environment
@@ -16,8 +16,8 @@ packages; anything else stays in the consumer until a third real consumer proves
 **Most important property:** a package carries mechanism only — every consumer decision is injected through a port or a serializer, never compiled in.
 ## 2. Package contract (public surface)
 
-Only `src/index.ts` is exported; anything else may change in a patch. Each package ships **dual ESM + CJS**: `exports` carries `import`, `require` and the `@naulabs/source` dev condition, each with a `dist` fallback; the build emits both formats plus declarations and source maps.
-### `@naulabs/config`
+Only `src/index.ts` is exported; anything else may change in a patch. Each package ships **dual ESM + CJS**: `exports` carries `import`, `require` and the `@naulabsco/source` dev condition, each with a `dist` fallback; the build emits both formats plus declarations and source maps.
+### `@naulabsco/config`
 
 ```ts
 type EnvReader = Record<string, string | undefined>;
@@ -29,7 +29,7 @@ function createConfigModule<T>(schema: z.ZodType<T>, opts?: { raw?: EnvReader })
 
 The schema is the consumer's; the package owns parse, fail-at-boot and the token. A failure names the
 missing keys and never echoes their values.
-### `@naulabs/logging`
+### `@naulabsco/logging`
 
 ```ts
 const CORRELATION_HEADER = 'x-correlation-id';
@@ -42,7 +42,7 @@ function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 
 Field names are the contract. A consumer adds context fields and redactions; it cannot remove a
 default redaction path.
-### `@naulabs/errors`
+### `@naulabsco/errors`
 
 ```ts
 abstract class DomainError extends Error { abstract readonly code: string; readonly criteria?: unknown }
@@ -65,7 +65,7 @@ function createExceptionFilter(serializer: EnvelopeSerializer): Type<ExceptionFi
 
 The envelope shape is the consumer's. The filter maps `ApplicationError` to its status/code/criteria,
 `ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail.
-### `@naulabs/auth-core`
+### `@naulabsco/auth-core`
 
 ```ts
 // ports — the consumer implements the adapters
@@ -123,7 +123,7 @@ pnpm exec changeset publish --tag latest                # publish to public npm
 ```
 package.json  pnpm-workspace.yaml  nx.json  tsconfig.base.json  eslint.config.mjs  .npmrc
 .changeset/                  changesets config and pending changeset files
-packages/{config,logging,errors,auth-core}/   one package per folder, @naulabs/<name>
+packages/{config,logging,errors,auth-core}/   one package per folder, @naulabsco/<name>
 packages/auth-core/  src/{index.ts,module.ts,errors.ts,config.ts}  src/{ports,crypto,tokens,guards}/
                       sql/  versioned reference SQL — never executed here
                       bin/emit-auth-sql.mjs   copies sql/* into a consumer migration directory
@@ -175,7 +175,7 @@ consumers pin exact versions. `main` is protected and only takes pull requests: 
 the release workflow opens and updates a `chore(release): version packages` pull request from
 `changeset-release/main`, and no version commit is pushed to `main`. Merging that pull request leaves no
 pending changesets, so the publish job builds and publishes the four packages with `changeset publish`
-to public npm with provenance. Publishing targets public npm; the `@naulabs` npm organisation, an
+to public npm with provenance. Publishing targets public npm; the `@naulabsco` npm organisation, an
 `NPM_TOKEN` repository secret and a fine-grained `RELEASE_TOKEN` (contents + pull-requests write, so CI
 runs on the release pull request) are human-owned prerequisites for the first publish; Actions must
 also be allowed to create pull requests at organisation and repository level. CI packs the four
@@ -191,8 +191,8 @@ missing export condition or a stripped import fails CI rather than a consumer.
 - `auth-core` passes the security review before any publish.
 ## 10. Decisions (resolved)
 
-- **Tooling/format:** pnpm + Nx; dual ESM + CJS (`import` + `require` + `@naulabs/source` conditions);
-  declaration files and source maps emitted. Public MIT, scope `@naulabs`, repo
+- **Tooling/format:** pnpm + Nx; dual ESM + CJS (`import` + `require` + `@naulabsco/source` conditions);
+  declaration files and source maps emitted. Public MIT, scope `@naulabsco`, repo
   `naulabsdotco/nest-platform`.
 - **Reference SQL:** ships `subject`, `subject_credential`, `refresh_token`, `password_reset_token`,
   `login_attempt` only (a scope/membership table does not ship here); `email` is `citext`; `login_attempt`
@@ -201,5 +201,5 @@ missing export condition or a stripped import fails CI rather than a consumer.
   no vendor-style naming anywhere.
 - **Guards:** `forRoot` registers them as global guards, ordered `JwtAuth → Scope → Permission`.
 - **Tests:** Vitest; SQL-apply uses testcontainers; `login` returns tokens plus the resolved scope; the
-  consumer contract stays in-repo. A human creates the `@naulabs` npm org and sets `NPM_TOKEN` before
+  consumer contract stays in-repo. A human creates the `@naulabsco` npm org and sets `NPM_TOKEN` before
   the first publish.

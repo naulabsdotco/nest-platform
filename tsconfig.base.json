@@ -5,7 +5,7 @@
     "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "customConditions": ["@naulabs/source"],
+    "customConditions": ["@naulabsco/source"],
     "strict": true,
     "experimentalDecorators": true,
     "declaration": true,
@@ -17,10 +17,10 @@
     "verbatimModuleSyntax": true,
     "baseUrl": ".",
     "paths": {
-      "@naulabs/config": ["packages/config/src/index.ts"],
-      "@naulabs/logging": ["packages/logging/src/index.ts"],
-      "@naulabs/errors": ["packages/errors/src/index.ts"],
-      "@naulabs/auth-core": ["packages/auth-core/src/index.ts"]
+      "@naulabsco/config": ["packages/config/src/index.ts"],
+      "@naulabsco/logging": ["packages/logging/src/index.ts"],
+      "@naulabsco/errors": ["packages/errors/src/index.ts"],
+      "@naulabsco/auth-core": ["packages/auth-core/src/index.ts"]
     }
   }
 }

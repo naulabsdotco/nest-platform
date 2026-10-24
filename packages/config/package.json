@@ -1,5 +1,5 @@
 {
-  "name": "@naulabs/config",
+  "name": "@naulabsco/config",
   "version": "0.1.0",
   "description": "Zod environment loader that parses at boot and never echoes values.",
   "license": "MIT",
@@ -9,7 +9,7 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "@naulabs/source": "./src/index.ts",
+      "@naulabsco/source": "./src/index.ts",
       "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
       "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.js" }
     },

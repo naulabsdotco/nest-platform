@@ -8,13 +8,13 @@ const root = process.cwd();
 const packageDir = (name: string): string => join(root, 'packages', name);
 const load = createRequire(import.meta.url);
 const resolveWith = (name: string): string =>
-  execFileSync('node', ['--conditions=@naulabs/source', '-p', `require.resolve('@naulabs/${name}')`], {
+  execFileSync('node', ['--conditions=@naulabsco/source', '-p', `require.resolve('@naulabsco/${name}')`], {
     cwd: root,
     encoding: 'utf8',
   }).trim();
 
 describe('package export conditions', () => {
-  it('resolves through the @naulabs/source condition in dev', () => {
+  it('resolves through the @naulabsco/source condition in dev', () => {
     for (const name of PACKAGES) {
       expect(resolveWith(name)).toBe(join(packageDir(name), 'src/index.ts'));
     }
@@ -30,8 +30,8 @@ describe('package export conditions', () => {
 
   it('exposes the same non-empty surface with matching export types', async () => {
     for (const name of PACKAGES) {
-      const esm = await import(/* @vite-ignore */ `@naulabs/${name}`);
-      const cjs = load(`@naulabs/${name}`);
+      const esm = await import(/* @vite-ignore */ `@naulabsco/${name}`);
+      const cjs = load(`@naulabsco/${name}`);
 
       expect(Object.keys(esm).length).toBeGreaterThan(0);
       expect(Object.keys(cjs).sort()).toEqual(Object.keys(esm).sort());
@@ -47,7 +47,7 @@ describe('package export conditions', () => {
     const broken = {
       exports: {
         '.': {
-          '@naulabs/source': './src/index.ts',
+          '@naulabsco/source': './src/index.ts',
           import: { types: './dist/esm/index.d.ts', default: './dist/esm/index.js' },
         },
       },

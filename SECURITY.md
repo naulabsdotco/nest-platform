@@ -10,12 +10,12 @@ Only the latest published minor of each package is supported; a fix ships as a p
 
 ## Release gate
 
-`@naulabs/auth-core` is a shared authentication library and a single point of failure. It publishes
+`@naulabsco/auth-core` is a shared authentication library and a single point of failure. It publishes
 only after the review in [`docs/auth-core-security-review.md`](docs/auth-core-security-review.md) is
 signed. The release workflow fails before the publish step when the signer or date field is empty or
 when a review row names a test that no longer exists.
 
-Publishing is also human-owned: the `@naulabs` npm organisation must exist, the `NPM_TOKEN` repository
+Publishing is also human-owned: the `@naulabsco` npm organisation must exist, the `NPM_TOKEN` repository
 secret must be set, and the release pull request must be opened with a fine-grained `RELEASE_TOKEN`
 (contents + pull-requests write) so CI runs on it. GitHub Actions must be enabled and allowed to create
 pull requests. Until then the release workflow is green and skips the publish step.

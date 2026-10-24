@@ -237,7 +237,7 @@ describe('AuthCoreModule.forRoot', () => {
     const require = createRequire(import.meta.url);
 
     for (const deep of ['dist/esm/module.js', 'dist/cjs/di.js', 'src/di.ts', 'src/tokens/jwt-keys.ts']) {
-      expect(() => require.resolve(`@naulabs/auth-core/${deep}`)).toThrow();
+      expect(() => require.resolve(`@naulabsco/auth-core/${deep}`)).toThrow();
     }
   });
 

@@ -1,4 +1,4 @@
-# @naulabs/auth-core
+# @naulabsco/auth-core
 
 Consumer-agnostic authentication primitives. The package carries mechanism only: the scope model,
 the store, the permission catalogue and the password policy are injected through the ports below.
@@ -32,7 +32,7 @@ to the consumer (see [Reference SQL](#reference-sql)).
 ## Implement these ports
 
 A consumer supplies the adapters; the package never compiles one in. The package depends on
-`@naulabs/errors` for the shared error taxonomy; install it alongside.
+`@naulabsco/errors` for the shared error taxonomy; install it alongside.
 
 | Port | The consumer answers |
 | --- | --- |
@@ -176,7 +176,7 @@ membership table; the scope model is the consumer's.
 
 `emitAuthSql({ destDir, utc14 })`, also runnable as
 `emit-auth-sql --dest <dir> --utc14 <14 digits>` (or
-`node node_modules/@naulabs/auth-core/bin/emit-auth-sql.mjs`), copies
+`node node_modules/@naulabsco/auth-core/bin/emit-auth-sql.mjs`), copies
 each file into the consumer's migration directory as `<utc14>_<name>.sql`. It never executes them and
 refuses to overwrite an existing target, so a second emit fails loudly instead of silently replacing a
 file; a write that fails midway removes the files that run created. **The consumer owns the migration**
@@ -185,7 +185,7 @@ connects as an elevated role.
 
 ## Release gate
 
-`@naulabs/auth-core` publishes only after the review in
+`@naulabsco/auth-core` publishes only after the review in
 [`docs/auth-core-security-review.md`](../../docs/auth-core-security-review.md) is signed. The release
 workflow fails when the signer or date is empty, or when a review row names a test that no longer
 exists.

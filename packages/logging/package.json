@@ -1,5 +1,5 @@
 {
-  "name": "@naulabs/logging",
+  "name": "@naulabsco/logging",
   "version": "0.1.0",
   "description": "pino logger module with a correlation id and a redaction list a consumer can extend but not empty.",
   "license": "MIT",
@@ -9,7 +9,7 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "@naulabs/source": "./src/index.ts",
+      "@naulabsco/source": "./src/index.ts",
       "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
       "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.js" }
     },
