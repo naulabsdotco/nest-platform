@@ -89,7 +89,13 @@ that carries none of the keys: default-deny made checkable by a consumer's own t
 
 `forRoot` registers the guards in the order `JwtAuthGuard` → `ScopeGuard` → `PermissionGuard`; the
 order is mechanism, not preference, because each writes what the next reads, and a consumer cannot
-change it. `JwtAuthGuard` takes the bearer
+change it. `guardPipeline` inserts consumer guards at the two fixed slots that make sense:
+`afterAuth` runs after the JWT guard (so `request.principal` is set) and before the scope guard;
+`afterScope` runs after the scope guard (so `request.scope` is set) and before the permission guard.
+Both are optional and empty by default, binding stays global, and there is no slot before
+`JwtAuthGuard` or after `PermissionGuard`, so a rate limiter in `afterAuth` still sees a request the
+permission guard will deny. An unknown slot or a non-array value fails boot with `AuthConfigError`.
+`JwtAuthGuard` takes the bearer
 token from the `Authorization` header only, verifies it against the pinned `algorithms`, `issuer` and
 `audience` with `ignoreExpiration: false`, requires `typ: 'access'`, and writes `{ sub }` to
 `request.principal` — no other claim is trusted, so a scope in the token is ignored. A `@Public` route

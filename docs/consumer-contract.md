@@ -83,7 +83,9 @@ const AUTH_ERROR_CODES: { readonly [k: string]: string };
 ```
 
 `forRoot` requires every seam below, provides the services, the strategy and the three guards, and
-registers the guards globally in the fixed order `JwtAuth → Scope → Permission`. The scope model, the
+registers the guards globally in the fixed order `JwtAuth → Scope → Permission`. `guardPipeline` may
+add consumer guards at `afterAuth` (after the JWT guard, before the scope guard) and `afterScope`
+(after the scope guard, before the permission guard); no other slot exists. The scope model, the
 error-code map, the envelope and the seed stay with the consumer.
 
 ### Ports a consumer implements

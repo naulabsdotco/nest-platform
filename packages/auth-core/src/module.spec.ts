@@ -77,6 +77,26 @@ class BareController {
   bare(): void {}
 }
 
+class FirstInsertedGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<{ principal?: { sub: string }; firstGuardSaw?: string }>();
+    request.firstGuardSaw = request.principal?.sub;
+    inspected.push('afterAuth');
+    return true;
+  }
+}
+
+class SecondInsertedGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<{ scope?: { scope: string }; secondGuardSaw?: string }>();
+    request.secondGuardSaw = request.scope?.scope;
+    inspected.push('afterScope');
+    return true;
+  }
+}
+
+const inspected: string[] = [];
+
 interface Request {
   headers: Record<string, string>;
 }
@@ -131,6 +151,105 @@ describe('AuthCoreModule.forRoot', () => {
       'ScopeGuard',
       'PermissionGuard',
     ]);
+  });
+
+  it('binds inserted guards only in the afterAuth and afterScope slots', async () => {
+    const app = await context({ guardPipeline: { afterAuth: [FirstInsertedGuard], afterScope: [SecondInsertedGuard] } });
+
+    expect(guardsOf(app).map((guard) => guard.constructor.name)).toEqual([
+      'JwtAuthGuard',
+      'FirstInsertedGuard',
+      'ScopeGuard',
+      'SecondInsertedGuard',
+      'PermissionGuard',
+    ]);
+  });
+
+  it('an afterAuth guard runs after the JWT guard and before the scope guard', async () => {
+    inspected.length = 0;
+    const app = await context({
+      scopeResolver: {
+        resolve: async () => {
+          inspected.push('scope');
+          return SCOPE;
+        },
+      },
+      permissionCatalogue: {
+        grantsFor: async () => {
+          inspected.push('permission');
+          return new Set(['thing:read']);
+        },
+      },
+      guardPipeline: { afterAuth: [FirstInsertedGuard] },
+    });
+    const token = app.get<TokenService>(TOKEN_SERVICE).issueAccess('subject-1').accessToken;
+    const request: Request & { firstGuardSaw?: string } = bearer(token);
+
+    await runGuards(app, routeContext(request, PermissionController, PermissionController.prototype.read));
+
+    expect(inspected).toEqual(['afterAuth', 'scope', 'permission']);
+    expect(request.firstGuardSaw).toBe('subject-1');
+  });
+
+  it('an afterAuth guard runs for a request the permission guard then denies', async () => {
+    inspected.length = 0;
+    const app = await context({ scopeResolver: { resolve: async () => SCOPE }, guardPipeline: { afterAuth: [FirstInsertedGuard] } });
+    const token = app.get<TokenService>(TOKEN_SERVICE).issueAccess('subject-1').accessToken;
+
+    await expect(
+      runGuards(app, routeContext(bearer(token), PermissionController, PermissionController.prototype.read)),
+    ).rejects.toBeInstanceOf(AuthRoleForbiddenError);
+    expect(inspected).toEqual(['afterAuth']);
+  });
+
+  it('an afterScope guard sees the resolved scope and runs before the permission guard', async () => {
+    inspected.length = 0;
+    const app = await context({
+      scopeResolver: {
+        resolve: async () => {
+          inspected.push('scope');
+          return SCOPE;
+        },
+      },
+      permissionCatalogue: {
+        grantsFor: async () => {
+          inspected.push('permission');
+          return new Set(['thing:read']);
+        },
+      },
+      guardPipeline: { afterScope: [SecondInsertedGuard] },
+    });
+    const token = app.get<TokenService>(TOKEN_SERVICE).issueAccess('subject-1').accessToken;
+    const request: Request & { secondGuardSaw?: string } = bearer(token);
+
+    await runGuards(app, routeContext(request, PermissionController, PermissionController.prototype.read));
+
+    expect(inspected).toEqual(['scope', 'afterScope', 'permission']);
+    expect(request.secondGuardSaw).toBe('example-app');
+  });
+
+  it('an empty pipeline keeps the built-in order', async () => {
+    const app = await context({ guardPipeline: {} });
+
+    expect(guardsOf(app).map((guard) => guard.constructor.name)).toEqual([
+      'JwtAuthGuard',
+      'ScopeGuard',
+      'PermissionGuard',
+    ]);
+  });
+
+  it('refuses a slot outside the two fixed positions or a non-array slot', () => {
+    const invalid = [
+      { beforeAuth: [FirstInsertedGuard] },
+      { afterPermission: [FirstInsertedGuard] },
+      { afterAuth: FirstInsertedGuard },
+    ];
+
+    for (const guardPipeline of invalid) {
+      expect(() =>
+        AuthCoreModule.forRoot(options({ guardPipeline } as unknown as Partial<AuthCoreOptions>)),
+      ).toThrow(AuthConfigError);
+    }
   });
 
   it('requires every seam, with no optional store, resolver or catalogue', () => {
