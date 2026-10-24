@@ -271,3 +271,182 @@ describe('emitAuthSql options', () => {
     ).rejects.toThrow(/missing/);
   });
 });
+
+describe('emitAuthSql check mode', () => {
+  it('reports every file in sync after a write and never writes in check mode', async () => {
+    const destDir = await tempDir();
+    await emitAuthSql({ destDir, utc14: UTC14 });
+    const before = await readdir(destDir);
+
+    const report = await emitAuthSql({ destDir, utc14: UTC14, mode: 'check' });
+
+    expect(report).toHaveLength(5);
+    expect(report.every((entry) => entry.status === 'in-sync')).toBe(true);
+    expect(await readdir(destDir)).toEqual(before);
+  });
+
+  it('reports a modified file as differs and leaves it untouched', async () => {
+    const destDir = await tempDir();
+    await emitAuthSql({ destDir, utc14: UTC14 });
+    const target = join(destDir, `${UTC14}_subject.sql`);
+    await writeFile(target, '-- edited\n');
+
+    const report = await emitAuthSql({ destDir, utc14: UTC14, mode: 'check' });
+
+    expect(report.find((entry) => entry.path === target)?.status).toBe('differs');
+    expect(report.filter((entry) => entry.status === 'in-sync')).toHaveLength(4);
+    expect(await readFile(target, 'utf8')).toBe('-- edited\n');
+  });
+
+  it('reports a missing file and does not create the directory', async () => {
+    const destDir = join(await tempDir(), 'not-created');
+
+    const report = await emitAuthSql({ destDir, utc14: UTC14, mode: 'check' });
+
+    expect(report.map((entry) => entry.status)).toEqual(Array(5).fill('missing'));
+    await expect(readdir(destDir)).rejects.toThrow();
+  });
+});
+
+describe('emitAuthSql down and verify', () => {
+  it('emits one down file per table, dropping in reverse foreign-key order', async () => {
+    const destDir = await tempDir();
+
+    const written = await emitAuthSql({ destDir, utc14: UTC14, direction: 'down' });
+
+    expect(written.map((path) => basename(path))).toEqual([
+      `${UTC14}_login_attempt.down.sql`,
+      `${UTC14}_password_reset_token.down.sql`,
+      `${UTC14}_refresh_token.down.sql`,
+      `${UTC14}_subject_credential.down.sql`,
+      `${UTC14}_subject.down.sql`,
+    ]);
+    for (const path of written) expect(await readFile(path, 'utf8')).toMatch(/^DROP TABLE IF EXISTS /);
+  });
+
+  it('down follows the table map', async () => {
+    const destDir = await tempDir();
+
+    await emitAuthSql({ destDir, utc14: UTC14, direction: 'down', tables: { subject: 'accounts' } });
+
+    expect(await readFile(join(destDir, `${UTC14}_subject.down.sql`), 'utf8')).toContain('accounts');
+  });
+
+  it('direction both emits the up set and the down set', async () => {
+    const destDir = await tempDir();
+
+    const written = await emitAuthSql({ destDir, utc14: UTC14, direction: 'both' });
+
+    expect(written).toHaveLength(10);
+    expect(written.filter((path) => path.endsWith('.down.sql'))).toHaveLength(5);
+    expect(await readdir(destDir)).toHaveLength(10);
+  });
+
+  it('verify emits schema assertions that name the emitted tables', async () => {
+    const destDir = await tempDir();
+
+    const written = await emitAuthSql({
+      destDir,
+      utc14: UTC14,
+      verify: true,
+      tables: { subject: 'accounts' },
+    });
+
+    const verify = written.find((path) => basename(path) === `${UTC14}_verify.sql`);
+    expect(verify).toBeDefined();
+    const sql = await readFile(verify as string, 'utf8');
+    expect(sql).toMatch(/to_regclass\(quote_ident\(current_schema\(\)\) \|\| '\.accounts'\)/);
+    expect(sql).toMatch(/to_regclass\(quote_ident\(current_schema\(\)\) \|\| '\.subject_credential'\)/);
+    expect(sql).toMatch(/table_schema = current_schema\(\)/);
+  });
+
+  it('emits verify before the down set, so the returned order is safe to apply as-is', async () => {
+    const destDir = await tempDir();
+
+    const written = await emitAuthSql({ destDir, utc14: UTC14, direction: 'both', verify: true });
+
+    expect(written).toHaveLength(11);
+    expect(written.findIndex((path) => path.endsWith('_verify.sql'))).toBeLessThan(
+      written.findIndex((path) => path.endsWith('.down.sql')),
+    );
+  });
+
+  it('refuses verify with a down-only emission', async () => {
+    const destDir = await tempDir();
+
+    await expect(emitAuthSql({ destDir, utc14: UTC14, direction: 'down', verify: true })).rejects.toThrow(/verify/i);
+  });
+
+  it('write mode still refuses to overwrite an emitted down file', async () => {
+    const destDir = await tempDir();
+    await emitAuthSql({ destDir, utc14: UTC14, direction: 'down' });
+
+    await expect(emitAuthSql({ destDir, utc14: UTC14, direction: 'down' })).rejects.toThrow(/overwrite/i);
+  });
+});
+
+describe('emit-auth-sql --check', () => {
+  const bin = fileURLToPath(new URL('./emit-auth-sql.mjs', import.meta.url));
+
+  it('exits 0 and prints in-sync when the directory matches', async () => {
+    const destDir = await tempDir();
+    await emitAuthSql({ destDir, utc14: UTC14 });
+
+    const { stdout } = await run(process.execPath, [bin, '--dest', destDir, '--utc14', UTC14, '--check']);
+
+    expect(stdout).toContain(`in-sync ${join(destDir, `${UTC14}_subject.sql`)}`);
+  });
+
+  it('exits 1, prints differs and writes nothing when a file changed', async () => {
+    const destDir = await tempDir();
+    await emitAuthSql({ destDir, utc14: UTC14 });
+    const target = join(destDir, `${UTC14}_subject.sql`);
+    await writeFile(target, '-- edited\n');
+
+    const failure = await run(process.execPath, [bin, '--dest', destDir, '--utc14', UTC14, '--check']).catch(
+      (error: { code?: number; stdout?: string }) => error,
+    );
+
+    expect(failure).toMatchObject({ code: 1 });
+    expect((failure as { stdout?: string }).stdout).toContain(`differs ${target}`);
+    expect(await readFile(target, 'utf8')).toBe('-- edited\n');
+  });
+
+  it('prints missing for a directory that does not exist', async () => {
+    const destDir = join(await tempDir(), 'absent');
+
+    const failure = await run(process.execPath, [bin, '--dest', destDir, '--utc14', UTC14, '--check']).catch(
+      (error: { code?: number; stdout?: string }) => error,
+    );
+
+    expect((failure as { stdout?: string }).stdout).toContain(`missing ${join(destDir, `${UTC14}_subject.sql`)}`);
+  });
+
+  it('takes direction and verify from the config file when no flag overrides them', async () => {
+    const destDir = await tempDir();
+    const configPath = join(await tempDir(), 'emit-config.json');
+    await writeFile(configPath, JSON.stringify({ direction: 'both', verify: true }));
+
+    const { stdout } = await run(process.execPath, [bin, '--dest', destDir, '--utc14', UTC14, '--config', configPath]);
+
+    expect(stdout).toContain(`${UTC14}_subject.down.sql`);
+    expect(stdout).toContain(`${UTC14}_verify.sql`);
+    expect(await readdir(destDir)).toHaveLength(11);
+  });
+
+  it('lets an explicit CLI direction override the config file', async () => {
+    const destDir = await tempDir();
+    const configPath = join(await tempDir(), 'emit-config.json');
+    await writeFile(configPath, JSON.stringify({ direction: 'both' }));
+
+    await run(process.execPath, [bin, '--dest', destDir, '--utc14', UTC14, '--config', configPath, '--direction', 'up']);
+
+    expect((await readdir(destDir)).sort()).toEqual([
+      `${UTC14}_login_attempt.sql`,
+      `${UTC14}_password_reset_token.sql`,
+      `${UTC14}_refresh_token.sql`,
+      `${UTC14}_subject.sql`,
+      `${UTC14}_subject_credential.sql`,
+    ]);
+  });
+});

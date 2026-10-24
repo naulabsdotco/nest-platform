@@ -72,7 +72,8 @@ class PermissionGuard implements CanActivate {}
 function assertEveryRouteGuarded(app: INestApplication): void;
 function createPasswordVerifier(opts?: { bcrypt?: boolean }): PasswordVerifier;
 function createTokenService(cfg: TokenConfig): TokenService;
-function emitAuthSql(opts: { destDir: string; utc14: string } & AuthSqlShape): Promise<readonly string[]>;
+function emitAuthSql(opts: { destDir: string; utc14: string } & AuthSqlShape & { direction?: 'up' | 'down' | 'both'; verify?: boolean; mode?: 'write' }): Promise<readonly string[]>;
+function emitAuthSql(opts: { destDir: string; utc14: string; mode: 'check' } & AuthSqlShape & { direction?: 'up' | 'down' | 'both'; verify?: boolean }): Promise<readonly { path: string; status: 'missing' | 'differs' | 'in-sync' }[]>;
 interface AuthSqlShape {
   tables?: { subject?: string; credential?: string; refreshToken?: string; resetToken?: string; loginAttempt?: string };
   columns?: { credential?: { sourceUpdatedAt?: boolean; failedCount?: boolean; lockedUntil?: boolean } };
