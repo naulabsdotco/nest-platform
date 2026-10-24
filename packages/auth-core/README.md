@@ -179,8 +179,9 @@ stamps attempts, and `ResetService` owns the password policy.
 ## Creating subjects
 
 `AuthStore.createSubject({ email, credential, scopes })` is the one write an invite, admin or seed
-flow makes: the adapter inserts the subject, its credential and every scope row in one transaction, so
-a failure leaves no orphan. A scope's `active` defaults to true. A duplicate email and a scope the
+flow makes. It is an **optional** member of the port: existing adapters compile unchanged, and an
+adapter that owns creation implements it. The package never calls it; the adapter inserts the subject,
+its credential and every scope row in one transaction, so a failure leaves no orphan. A scope's `active` defaults to true. A duplicate email and a scope the
 consumer does not know are refused with the same `AuthSubjectCreationFailedError` (409) — the
 adapter's own constraint decides which, and the caller sees one typed failure rather than SQL detail.
 No plaintext password reaches the port: the consumer hashes it and passes `{ algo, hash }`.

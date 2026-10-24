@@ -71,9 +71,11 @@ export interface NewSubject {
 export interface AuthStore {
   findCredentialByEmail(email: string): Promise<StoredCredential | null>;
   findScopesByEmail(email: string): Promise<readonly AuthScope[]>;
-  // Writes the subject, its credential and every scope row in one transaction, or nothing. A
-  // duplicate email or an unknown scope is refused with AuthSubjectCreationFailedError.
-  createSubject(input: NewSubject): Promise<{ subjectId: string }>;
+  // Optional so every existing adapter still compiles: implement it when an invite, admin or seed
+  // flow creates subjects, and write the subject, credential and scope rows in one transaction.
+  // The package never calls it; a duplicate email or an unknown scope is refused with
+  // AuthSubjectCreationFailedError.
+  createSubject?(input: NewSubject): Promise<{ subjectId: string }>;
   replaceCredentialHash(subjectId: string, hash: string): Promise<void>;
   issueRefresh(input: RefreshInput): Promise<RefreshRecord>;
   findRefreshByHash(tokenHash: string): Promise<RefreshRecord | null>;
