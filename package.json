@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
+    "@changesets/parse": "^1.0.0",
     "@eslint/js": "^10.0.1",
     "@naulabsco/auth-core": "workspace:*",
     "@naulabsco/config": "workspace:*",
