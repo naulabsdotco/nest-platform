@@ -20,12 +20,17 @@ export type RequestHandler = (
   next: () => void,
 ) => void;
 
+export function correlationIdFrom(value: unknown): string {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  // A transport may hand the header over as bytes; HTTP always hands over a string.
+  const text = Buffer.isBuffer(candidate) ? candidate.toString('utf8') : candidate;
+  return typeof text === 'string' && UUID_PATTERN.test(text) ? text.toLowerCase() : randomUUID();
+}
+
 // Reads a UUID inbound id or mints one, and writes it back so a later reader sees the same value.
 export function correlationIdOf(req: CorrelationRequest, header: string): string {
   const key = header.toLowerCase();
-  const inbound = req.headers[key];
-  const candidate = Array.isArray(inbound) ? inbound[0] : inbound;
-  const correlationId = candidate && UUID_PATTERN.test(candidate) ? candidate.toLowerCase() : randomUUID();
+  const correlationId = correlationIdFrom(req.headers[key]);
   req.headers[key] = correlationId;
   return correlationId;
 }
