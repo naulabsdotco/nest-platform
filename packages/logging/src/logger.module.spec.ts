@@ -64,4 +64,21 @@ describe('createLoggerModule', () => {
 
     expect((redact as { paths: string[] }).paths).toEqual([...DEFAULT_REDACT_PATHS, 'subjectEmail']);
   });
+
+  it('leaves the HTTP path alone unless microservice logging is asked for', () => {
+    const params = paramsOf({ service: 'example-app' });
+
+    expect(params.microservice).toBeUndefined();
+    expect(params.assignResponse).toBeFalsy();
+  });
+
+  it('binds assigned fields on the closing line of both transports when microservice logging is on', () => {
+    expect(paramsOf({ service: 'example-app', microservice: true }).assignResponse).toBe(true);
+  });
+
+  it('writes the lines to a consumer-supplied destination', () => {
+    const destination = { write: () => {} };
+
+    expect((paramsOf({ service: 'example-app', destination }).pinoHttp as Options).stream).toBe(destination);
+  });
 });
