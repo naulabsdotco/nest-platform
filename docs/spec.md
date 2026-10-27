@@ -35,13 +35,15 @@ missing keys and never echoes their values.
 const CORRELATION_HEADER = 'x-correlation-id';
 const DEFAULT_REDACT_PATHS: readonly string[];
 const LOG_FIELDS: readonly ['event', 'correlationId', 'outcome'];
-interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[] }
+interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; microservice?: boolean; destination?: DestinationStream }
 function createLoggerModule(opts: LoggerOptions): DynamicModule;
 function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 ```
 
 Field names are the contract. A consumer adds context fields and redactions; it cannot remove a
-default redaction path.
+default redaction path. `microservice: true` gives a non-HTTP message handler the same correlation
+id and `durationMs` through the `nestjs-pino` message seam; the handler binds its own context fields
+with `PinoLogger.assign`.
 ### `@naulabsco/errors`
 
 ```ts
