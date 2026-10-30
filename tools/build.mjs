@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,9 +12,13 @@ const formats = [
 ];
 
 export async function buildPackage(dir) {
+  const entries = ['src/index.ts', 'src/domain.ts']
+    .map((entry) => join(dir, entry))
+    .filter((entry) => existsSync(entry));
+
   for (const { format, outDir } of formats) {
     await build({
-      entry: [join(dir, 'src/index.ts')],
+      entry: entries,
       outDir: join(dir, 'dist', outDir),
       format,
       dts: true,
