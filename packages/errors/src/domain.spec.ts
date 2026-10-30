@@ -4,7 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { DomainError } from './domain';
 
-const domainEntry = resolve(dirname(fileURLToPath(import.meta.url)), 'domain.ts');
+const srcDir = dirname(fileURLToPath(import.meta.url));
+const entries = {
+  domain: resolve(srcDir, 'domain.ts'),
+  application: resolve(srcDir, 'application.ts'),
+};
 const importSpecifier = /(?:from\s*|import\s*\(\s*)['"]([^'"]+)['"]/g;
 const forbidden = [/^@nestjs\//, /^(pg|postgres|mysql2|ioredis|mongodb|better-sqlite3)$/];
 
@@ -27,7 +31,7 @@ const moduleGraph = (entry: string) => {
   return [...external];
 };
 
-describe('domain entry', () => {
+describe('framework-free entries', () => {
   it('DomainError is exported and usable', () => {
     class SampleFailed extends DomainError {
       readonly code = 'SAMPLE_FAILED';
@@ -40,8 +44,8 @@ describe('domain entry', () => {
     expect(error.criteria).toEqual({ field: 'name' });
   });
 
-  it('its module graph imports no framework or database driver', () => {
-    const leaked = moduleGraph(domainEntry).filter((specifier) =>
+  it.each(Object.entries(entries))('%s entry imports no framework or database driver', (_name, entry) => {
+    const leaked = moduleGraph(entry).filter((specifier) =>
       forbidden.some((pattern) => pattern.test(specifier)),
     );
 

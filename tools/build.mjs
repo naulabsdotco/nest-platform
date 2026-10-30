@@ -12,7 +12,7 @@ const formats = [
 ];
 
 export async function buildPackage(dir) {
-  const entries = ['src/index.ts', 'src/domain.ts']
+  const entries = ['src/index.ts', 'src/domain.ts', 'src/application.ts']
     .map((entry) => join(dir, entry))
     .filter((entry) => existsSync(entry));
 

@@ -17,7 +17,10 @@ class PlanExpired extends DomainError {
 throw new PlanExpired({ plan: 'free' });
 ```
 
-The `./domain` entry re-exports only `DomainError`, so a domain layer that imports it loads no `@nestjs/*` module. Every other export stays on the package root.
+The `./domain` entry re-exports only `DomainError`; the `./application` entry adds
+`ApplicationError` (with `fromDomain`), the kinds and the envelope serializer. Neither loads a
+`@nestjs/*` module, so a domain or application layer imports the narrowest one it needs. The package
+root keeps the full surface, including the Nest HTTP filter.
 
 `ApplicationError.fromDomain` is the only place a domain error becomes an application error. Give it a
 code → status map and a mapped domain error keeps its code and criteria at that status:

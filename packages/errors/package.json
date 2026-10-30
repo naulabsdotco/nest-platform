@@ -18,6 +18,11 @@
       "import": { "types": "./dist/esm/domain.d.ts", "default": "./dist/esm/domain.js" },
       "require": { "types": "./dist/cjs/domain.d.cts", "default": "./dist/cjs/domain.js" }
     },
+    "./application": {
+      "@naulabsco/source": "./src/application.ts",
+      "import": { "types": "./dist/esm/application.d.ts", "default": "./dist/esm/application.js" },
+      "require": { "types": "./dist/cjs/application.d.cts", "default": "./dist/cjs/application.js" }
+    },
     "./package.json": "./package.json"
   },
   "files": ["dist", "src"],

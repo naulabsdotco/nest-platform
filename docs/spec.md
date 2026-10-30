@@ -16,7 +16,7 @@ packages; anything else stays in the consumer until a third real consumer proves
 **Most important property:** a package carries mechanism only — every consumer decision is injected through a port or a serializer, never compiled in.
 ## 2. Package contract (public surface)
 
-Only `src/index.ts` and the framework-free `src/domain.ts` subpath are exported; anything else may change in a patch. Each package ships **dual ESM + CJS**: `exports` carries `import`, `require` and the `@naulabsco/source` dev condition, each with a `dist` fallback; the build emits both formats plus declarations and source maps.
+Only `src/index.ts` and the framework-free `src/domain.ts` and `src/application.ts` subpaths are exported; anything else may change in a patch. Each package ships **dual ESM + CJS**: `exports` carries `import`, `require` and the `@naulabsco/source` dev condition, each with a `dist` fallback; the build emits both formats plus declarations and source maps.
 ### `@naulabsco/config`
 
 ```ts
@@ -66,8 +66,10 @@ function createExceptionFilter(serializer: EnvelopeSerializer): Type<ExceptionFi
 ```
 
 The envelope shape is the consumer's. The filter maps `ApplicationError` to its status/code/criteria,
-`ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail. A domain layer imports
-`DomainError` from `@naulabsco/errors/domain`, which re-exports nothing that loads `@nestjs/*`.
+`ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail. A layer picks the
+narrowest entry that carries no framework: `@naulabsco/errors/domain` for `DomainError`, and
+`@naulabsco/errors/application` for the rest of the taxonomy and the serializer. Neither re-exports
+anything that loads `@nestjs/*`; the root entry keeps the Nest HTTP filter.
 ### `@naulabsco/auth-core`
 
 ```ts
