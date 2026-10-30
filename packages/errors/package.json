@@ -13,6 +13,16 @@
       "import": { "types": "./dist/esm/index.d.ts", "default": "./dist/esm/index.js" },
       "require": { "types": "./dist/cjs/index.d.cts", "default": "./dist/cjs/index.js" }
     },
+    "./domain": {
+      "@naulabsco/source": "./src/domain.ts",
+      "import": { "types": "./dist/esm/domain.d.ts", "default": "./dist/esm/domain.js" },
+      "require": { "types": "./dist/cjs/domain.d.cts", "default": "./dist/cjs/domain.js" }
+    },
+    "./application": {
+      "@naulabsco/source": "./src/application.ts",
+      "import": { "types": "./dist/esm/application.d.ts", "default": "./dist/esm/application.js" },
+      "require": { "types": "./dist/cjs/application.d.cts", "default": "./dist/cjs/application.js" }
+    },
     "./package.json": "./package.json"
   },
   "files": ["dist", "src"],

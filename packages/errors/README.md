@@ -8,12 +8,19 @@ through an envelope you supply.
 A domain raises a plain `DomainError` subclass with its own code and the criteria a caller may see:
 
 ```ts
+import { DomainError } from '@naulabsco/errors/domain';
+
 class PlanExpired extends DomainError {
   readonly code = 'PLAN_EXPIRED';
 }
 
 throw new PlanExpired({ plan: 'free' });
 ```
+
+The `./domain` entry re-exports only `DomainError`; the `./application` entry adds
+`ApplicationError` (with `fromDomain`), the kinds and the envelope serializer. Neither loads a
+`@nestjs/*` module, so a domain or application layer imports the narrowest one it needs. The package
+root keeps the full surface, including the Nest HTTP filter.
 
 `ApplicationError.fromDomain` is the only place a domain error becomes an application error. Give it a
 code → status map and a mapped domain error keeps its code and criteria at that status:
