@@ -1,6 +1,6 @@
 {
   "name": "@naulabsco/errors",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Domain and application error taxonomy, fromDomain translation and a pluggable-envelope HTTP filter.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/naulabsdotco/nest-platform.git", "directory": "packages/errors" },

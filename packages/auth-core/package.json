@@ -1,6 +1,6 @@
 {
   "name": "@naulabsco/auth-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Consumer-agnostic authentication primitives: tokens, password verification, refresh rotation, reset tokens and guards.",
   "license": "MIT",
   "repository": { "type": "git", "url": "git+https://github.com/naulabsdotco/nest-platform.git", "directory": "packages/auth-core" },
