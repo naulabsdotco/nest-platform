@@ -1,5 +1,12 @@
 # @naulabsco/auth-core
 
+## 0.3.0
+
+### Patch Changes
+
+- Updated dependencies [ebadc35]
+  - @naulabsco/errors@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
