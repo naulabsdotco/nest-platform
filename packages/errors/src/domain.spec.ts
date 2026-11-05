@@ -42,6 +42,18 @@ describe('framework-free entries', () => {
     expect(error).toBeInstanceOf(Error);
     expect(error.code).toBe('SAMPLE_FAILED');
     expect(error.criteria).toEqual({ field: 'name' });
+    expect(error.message).toBe('');
+  });
+
+  it('a subclass states an optional message after its criteria', () => {
+    class SampleRejected extends DomainError {
+      readonly code = 'SAMPLE_REJECTED';
+    }
+
+    const error = new SampleRejected({ field: 'name' }, 'name is required');
+
+    expect(error.message).toBe('name is required');
+    expect(error.criteria).toEqual({ field: 'name' });
   });
 
   it.each(Object.entries(entries))('%s entry imports no framework or database driver', (_name, entry) => {

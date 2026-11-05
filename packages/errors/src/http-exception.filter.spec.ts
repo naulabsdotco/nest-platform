@@ -107,11 +107,29 @@ describe('HttpExceptionFilter', () => {
     });
   });
 
+  it('a mapped DomainError renders its message in the 4xx body', () => {
+    const { response, argumentsHost } = hostFor();
+    const statusFor: StatusMap = { PROJECT_NOT_FOUND: 422 };
+
+    new HttpExceptionFilter(defaultEnvelopeSerializer(), statusFor).catch(
+      new ProjectMissing({ id: '1' }, 'project 1 is not ready'),
+      argumentsHost,
+    );
+
+    expect(response.body).toMatchObject({
+      statusCode: 422,
+      errorCode: 'PROJECT_NOT_FOUND',
+      message: 'project 1 is not ready',
+      criteria: { id: '1' },
+    });
+  });
+
   it('an unmapped DomainError renders 500 INTERNAL_ERROR with no detail', () => {
-    const body = render(new ProjectMissing({ id: '1' })).body as Record<string, unknown>;
+    const body = render(new ProjectMissing({ id: '1' }, 'project 1 is not ready')).body as Record<string, unknown>;
 
     expect(body.statusCode).toBe(500);
     expect(body.errorCode).toBe('INTERNAL_ERROR');
+    expect(body.message).toBe('');
     expect(body).not.toHaveProperty('criteria');
   });
 

@@ -34,7 +34,7 @@ default redaction path. `pino` and `nestjs-pino` are peer dependencies.
 ## `@naulabsco/errors`
 
 ```ts
-abstract class DomainError extends Error { abstract readonly code: string; readonly criteria?: unknown }
+abstract class DomainError extends Error { abstract readonly code: string; readonly criteria?: unknown; constructor(criteria?: unknown, message?: string) }
 abstract class ApplicationError extends Error {
   readonly statusCode: number; readonly code: string; readonly criteria?: unknown;
   static fromDomain(e: unknown): ApplicationError;
@@ -53,8 +53,8 @@ function createExceptionFilter(serializer: EnvelopeSerializer): Type<ExceptionFi
 ```
 
 The envelope shape is the consumer's. The filter maps `ApplicationError` to its status/code/criteria,
-`ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail. `@nestjs/common` is a
-peer dependency.
+`ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail; a mapped domain error's
+message reaches the body and an unmapped one does not. `@nestjs/common` is a peer dependency.
 
 ## `@naulabsco/auth-core`
 

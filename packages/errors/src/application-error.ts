@@ -10,8 +10,8 @@ export abstract class ApplicationError extends Error {
   readonly statusCode: number = 500;
   readonly criteria?: unknown;
 
-  constructor(criteria?: unknown) {
-    super();
+  constructor(criteria?: unknown, message?: string) {
+    super(message);
     this.criteria = criteria;
   }
 
@@ -19,7 +19,7 @@ export abstract class ApplicationError extends Error {
     const mapped = error instanceof DomainError ? statusFor?.[error.code as C] : undefined;
     const translated =
       error instanceof DomainError && isClientStatus(mapped)
-        ? new DomainApplicationError(error.code, mapped, error.criteria)
+        ? new DomainApplicationError(error.code, mapped, error.criteria, error.message)
         : new InternalApplicationError();
     Object.defineProperty(translated, 'cause', { value: error });
     return translated;
@@ -39,7 +39,8 @@ class DomainApplicationError extends ApplicationError {
     readonly code: string,
     readonly statusCode: number,
     criteria?: unknown,
+    message?: string,
   ) {
-    super(criteria);
+    super(criteria, message);
   }
 }
