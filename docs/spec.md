@@ -47,7 +47,7 @@ with `PinoLogger.assign`.
 ### `@naulabsco/errors`
 
 ```ts
-abstract class DomainError extends Error { abstract readonly code: string; readonly criteria?: unknown }
+abstract class DomainError extends Error { abstract readonly code: string; readonly criteria?: unknown; constructor(criteria?: unknown, message?: string) }
 abstract class ApplicationError extends Error {
   readonly statusCode: number; readonly code: string; readonly criteria?: unknown;
   static fromDomain(e: unknown): ApplicationError;             // the only domain→application translation
@@ -66,7 +66,8 @@ function createExceptionFilter(serializer: EnvelopeSerializer): Type<ExceptionFi
 ```
 
 The envelope shape is the consumer's. The filter maps `ApplicationError` to its status/code/criteria,
-`ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail. A layer picks the
+`ZodError` to 400, and anything else to a 500 `INTERNAL_ERROR` with no detail. A mapped domain error's
+optional message is carried into the body; an unmapped one keeps no message or criteria. A layer picks the
 narrowest entry that carries no framework: `@naulabsco/errors/domain` for `DomainError`, and
 `@naulabsco/errors/application` for the rest of the taxonomy and the serializer. Neither re-exports
 anything that loads `@nestjs/*`; the root entry keeps the Nest HTTP filter.

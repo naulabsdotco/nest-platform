@@ -14,8 +14,11 @@ class PlanExpired extends DomainError {
   readonly code = 'PLAN_EXPIRED';
 }
 
-throw new PlanExpired({ plan: 'free' });
+throw new PlanExpired({ plan: 'free' }, 'the plan is no longer active');
 ```
+
+The constructor takes the criteria first and an optional developer-facing message second, so existing
+criteria-only subclasses are unaffected and `super(criteria)` keeps working.
 
 The `./domain` entry re-exports only `DomainError`; the `./application` entry adds
 `ApplicationError` (with `fromDomain`), the kinds and the envelope serializer. Neither loads a
@@ -23,7 +26,7 @@ The `./domain` entry re-exports only `DomainError`; the `./application` entry ad
 root keeps the full surface, including the Nest HTTP filter.
 
 `ApplicationError.fromDomain` is the only place a domain error becomes an application error. Give it a
-code → status map and a mapped domain error keeps its code and criteria at that status:
+code → status map and a mapped domain error keeps its code, criteria and message at that status:
 
 ```ts
 const statusFor = { PLAN_EXPIRED: 402 };
@@ -32,12 +35,12 @@ throw ApplicationError.fromDomain(error, statusFor);
 ```
 
 An unmapped code — or anything that is not a `DomainError` — becomes a 500 `InfrastructureError` with
-no message, stack or original detail, and a mapped status outside 400–599 is ignored (fail-closed).
-Each kind fixes its own status and is abstract on `code`, so a subclass names the failure: 400
-`ValidationError`, 401 `UnauthorizedError`, 403 `ForbiddenError`, 404 `NotFoundError`, 409
+no message, criteria, stack or original detail, and a mapped status outside 400–599 is ignored
+(fail-closed). Each kind fixes its own status and is abstract on `code`, so a subclass names the failure:
+400 `ValidationError`, 401 `UnauthorizedError`, 403 `ForbiddenError`, 404 `NotFoundError`, 409
 `ConflictError`, 500 `InfrastructureError`.
 
-`criteria` is passed through by reference; keep credentials and tokens out of it.
+`criteria` is passed through by reference; keep credentials and tokens out of it and out of the message.
 
 ## HTTP filter
 
