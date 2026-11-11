@@ -84,6 +84,91 @@ describe('automatic line events', () => {
   });
 });
 
+describe('http duration key', () => {
+  it('renames the automatic HTTP duration key', () => {
+    const emitted = automaticLineFor({
+      service: 'example-app',
+      customAttributeKeys: { responseTime: 'durationMs' },
+    });
+
+    expect(emitted.durationMs).toBeTypeOf('number');
+    expect(emitted.responseTime).toBeUndefined();
+    expect(emitted.correlationId).toBeTypeOf('string');
+    expect(emitted.req).toBeDefined();
+    expect(emitted.res).toBeDefined();
+  });
+
+  it('keeps responseTime on the automatic HTTP line by default', () => {
+    const emitted = automaticLineFor({ service: 'example-app' });
+
+    expect(emitted.responseTime).toBeTypeOf('number');
+    expect(emitted.durationMs).toBeUndefined();
+  });
+
+  it('leaves the microservice duration key at durationMs whatever the HTTP option', () => {
+    const params = paramsOf({
+      service: 'example-app',
+      microservice: true,
+      customAttributeKeys: { responseTime: 'elapsed' },
+    });
+
+    expect(
+      (params.microservice as { customAttributeKeys: object }).customAttributeKeys,
+    ).toEqual({ reqId: 'correlationId', responseTime: 'durationMs' });
+  });
+
+  it('accepts responseTime as a no-op and keeps the other keys at their defaults', () => {
+    const emitted = automaticLineFor({
+      service: 'example-app',
+      customAttributeKeys: { responseTime: 'responseTime' },
+    });
+
+    expect(emitted.responseTime).toBeTypeOf('number');
+    expect(emitted.req).toBeDefined();
+    expect(emitted.res).toBeDefined();
+    expect(emitted.correlationId).toBeTypeOf('string');
+  });
+
+  it('rejects a reserved target, another attribute key, or an empty target', () => {
+    const invalid = [
+      { responseTime: 'correlationId' },
+      { responseTime: 'service' },
+      { responseTime: 'event' },
+      { responseTime: 'level' },
+      { responseTime: 'msg' },
+      { responseTime: '' },
+      { responseTime: 42 },
+      { req: 'request' },
+      { res: 'response' },
+      { err: 'error' },
+    ];
+    for (const customAttributeKeys of invalid) {
+      expect(() =>
+        createLoggerModule({ service: 'example-app', customAttributeKeys } as unknown as LoggerOptions),
+      ).toThrow(TypeError);
+    }
+  });
+
+  it('still redacts a credential when the duration key is renamed', () => {
+    const emitted = automaticLineFor(
+      { service: 'example-app', customAttributeKeys: { responseTime: 'durationMs' } },
+      {
+        headers: {
+          authorization: 'Bearer secret',
+          cookie: 'session=secret',
+          'x-api-key': 'secret-key',
+        },
+      },
+    );
+    const { headers } = emitted.req as { headers: Record<string, unknown> };
+
+    expect(headers.authorization).toBe('[Redacted]');
+    expect(headers.cookie).toBe('[Redacted]');
+    expect(headers['x-api-key']).toBe('[Redacted]');
+    expect(JSON.stringify(emitted)).not.toContain('secret');
+  });
+});
+
 describe('createLoggerModule', () => {
   it('provides a logger and binds correlationId on the emitted line', () => {
     const module = createLoggerModule({ service: 'example-app' });

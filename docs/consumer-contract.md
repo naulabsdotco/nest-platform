@@ -25,7 +25,7 @@ const DEFAULT_REDACT_PATHS: readonly string[];
 const LOG_FIELDS: readonly ['event', 'correlationId', 'outcome'];
 interface AutoEvents { request?: string; message?: string }
 interface MicroserviceLoggerOptions { genReqId?: (context: ExecutionContext) => string | Buffer | readonly string[] }
-interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; microservice?: boolean | MicroserviceLoggerOptions; autoEvents?: AutoEvents }
+interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; microservice?: boolean | MicroserviceLoggerOptions; autoEvents?: AutoEvents; customAttributeKeys?: { responseTime?: string } }
 function createLoggerModule(opts: LoggerOptions): DynamicModule;
 function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 function currentCorrelationId(logger: PinoLogger, key?: string): string | undefined;
@@ -35,8 +35,9 @@ Field names are the contract. A consumer adds context fields and redactions; it 
 default redaction path. `contextFields` reads HTTP request fields and, with `microservice`, message
 data; a field that shadows a reserved, automatic, base or module name is ignored on both. With
 `microservice`, `genReqId` may supply the message id; a non-canonical return becomes a generated
-UUID and a throw falls back to the transport metadata. `pino` and `nestjs-pino` are peer
-dependencies.
+UUID and a throw falls back to the transport metadata. `customAttributeKeys` renames only the HTTP
+duration key and is structural, so no `pino-http` type is exported. `pino` and `nestjs-pino` are
+peer dependencies.
 
 ## `@naulabsco/errors`
 

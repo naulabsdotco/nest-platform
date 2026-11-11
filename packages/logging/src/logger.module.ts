@@ -30,6 +30,7 @@ export interface LoggerOptions {
   contextFields?: readonly string[];
   microservice?: boolean | MicroserviceLoggerOptions;
   autoEvents?: AutoEvents;
+  customAttributeKeys?: { responseTime?: string };
   destination?: DestinationStream;
 }
 
@@ -59,6 +60,33 @@ function autoEventHook(this: Logger, args: Parameters<LogFn>, method: LogFn): vo
   const event = first && typeof first === 'object' ? first[AUTO_EVENT] : undefined;
   if (event !== undefined && first && this.bindings().event === undefined) first.event = event;
   method.apply(this, args);
+}
+
+// Renaming req/res/err would move a redacted secret out of the redaction path.
+const DURATION_TARGETS = new Set(
+  [...RESERVED_FIELDS].filter((name) => name !== 'responseTime' && name !== 'durationMs'),
+);
+
+function durationKeyOption(value: unknown): { responseTime?: string } | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('customAttributeKeys must be an object');
+  }
+  const option = value as Record<string, unknown>;
+  for (const key of Object.keys(option)) {
+    if (key !== 'responseTime') {
+      throw new TypeError(`customAttributeKeys.${key} is not supported; only responseTime may be renamed`);
+    }
+  }
+  const target = option.responseTime;
+  if (target === undefined) return {};
+  if (typeof target !== 'string' || target.trim() === '') {
+    throw new TypeError('customAttributeKeys.responseTime must be a non-empty string');
+  }
+  if (DURATION_TARGETS.has(target)) {
+    throw new TypeError(`customAttributeKeys.responseTime may not target the reserved field ${target}`);
+  }
+  return { responseTime: target };
 }
 
 function contextProps(source: Record<string, unknown>, contextFields: readonly string[]): Record<string, unknown> {
@@ -111,6 +139,7 @@ export function createLoggerModule(opts: LoggerOptions): DynamicModule {
   };
   const requestEvent = eventName(opts.autoEvents?.request, 'autoEvents.request');
   const messageEvent = eventName(opts.autoEvents?.message, 'autoEvents.message');
+  const customAttributeKeys = durationKeyOption(opts.customAttributeKeys);
   return LoggerModule.forRoot({
     // A field assigned mid-message belongs on the line that closes it, not only on the
     // lines logged after the assign.
@@ -135,6 +164,9 @@ export function createLoggerModule(opts: LoggerOptions): DynamicModule {
           }
         : {}),
       hooks: { logMethod: autoEventHook },
+      ...(customAttributeKeys?.responseTime
+        ? { customAttributeKeys: { responseTime: customAttributeKeys.responseTime } }
+        : {}),
       stream: opts.destination,
     },
     ...(microservice
