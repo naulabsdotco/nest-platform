@@ -1,5 +1,29 @@
 # @naulabsco/logging
 
+## 0.4.0
+
+### Minor Changes
+
+- 743c18d: `LoggerOptions` gains `autoEvents`. `request` names the `event` on the automatic HTTP
+  request-completion line and `message` names it on the automatic microservice completion
+  line. Each name must be a non-empty string. Handler lines, `msg` and the output without the
+  option are unchanged.
+- fbd51bd: New `currentCorrelationId(logger, key?)` reads the id bound to the current message, so a handler
+  gets the same value carried by every line without re-deriving it; outside a bound message context,
+  or when the binding is not a string, it returns `undefined`.
+- 4b4c590: `LoggerOptions` gains `customAttributeKeys`, which accepts only `{ responseTime?: string }` and
+  renames the automatic HTTP line's duration key. The default stays `responseTime`, and the
+  microservice completion line keeps `durationMs`. Renaming `req`, `res` or `err` would bypass
+  redaction, so those keys are rejected, as is any reserved target other than `responseTime` and
+  `durationMs`. The option is structural, so no new peer dependency is added.
+- 5fa55a4: `contextFields` now applies to microservice message lines, read once from the message data and
+  bound to every line of that message. A context field that collides with a reserved, automatic,
+  base or module name is now ignored on HTTP too, a behaviour change for a consumer that listed
+  such a name.
+- 45c1f05: `microservice` accepts `MicroserviceLoggerOptions.genReqId(context)`; a canonical UUID return is
+  accepted and lowercased, anything else falls back to a generated UUID, a throw falls back to the
+  default resolver, and `microservice: {}` enables the seam like `true`.
+
 ## 0.3.0
 
 No changes in this release.
