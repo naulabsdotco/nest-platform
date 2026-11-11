@@ -37,7 +37,7 @@ const DEFAULT_REDACT_PATHS: readonly string[];
 const LOG_FIELDS: readonly ['event', 'correlationId', 'outcome'];
 interface AutoEvents { request?: string; message?: string }
 interface MicroserviceLoggerOptions { genReqId?: (context: ExecutionContext) => string | Buffer | readonly string[] }
-interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; microservice?: boolean | MicroserviceLoggerOptions; autoEvents?: AutoEvents; destination?: DestinationStream }
+interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; microservice?: boolean | MicroserviceLoggerOptions; autoEvents?: AutoEvents; customAttributeKeys?: { responseTime?: string }; destination?: DestinationStream }
 function createLoggerModule(opts: LoggerOptions): DynamicModule;
 function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 function currentCorrelationId(logger: PinoLogger, key?: string): string | undefined;

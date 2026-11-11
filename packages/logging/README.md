@@ -183,6 +183,21 @@ errored. Each name must be a non-empty string after trimming, or `createLoggerMo
 `TypeError` naming the option. `msg` and handler lines are unchanged: a handler keeps its own
 `{ event }` and message text; an `assign`ed `event` wins on the automatic line too.
 
+## Duration key
+
+The automatic HTTP line reports how long the request took under pino-http's
+`responseTime`. Rename only that key when an app's schema expects `durationMs`:
+
+```ts
+createLoggerModule({ service: 'example-app', customAttributeKeys: { responseTime: 'durationMs' } });
+```
+
+The option accepts only `responseTime`; the HTTP default stays `responseTime`, and the
+microservice completion line already uses `durationMs` regardless of this option. Only the
+duration key may be renamed: renaming `req`, `res` or `err` would move a value out of the
+redaction paths, so those keys are rejected, as is any reserved target other than
+`responseTime` and `durationMs`. An empty or non-string target throws a `TypeError`.
+
 ## Context fields
 
 A consumer adds its own neutral fields through `contextFields`. On HTTP each named field
