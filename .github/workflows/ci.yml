@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -27,6 +28,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: pr-size
         if: github.event_name == 'pull_request'
-        run: node scripts/pr-size.mjs origin/${{ github.base_ref }}
+        # In a stack, base_ref names the stack's trunk, not the branch below; size against the PR's own base.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node scripts/pr-size.mjs "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .base.sha)"
       - run: pnpm exec nx run-many -t lint typecheck test build
       - run: node scripts/pack-smoke.mjs
