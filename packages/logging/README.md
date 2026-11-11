@@ -97,8 +97,26 @@ Every line carries the reserved fields in `LOG_FIELDS`:
 const LOG_FIELDS = ['event', 'correlationId', 'outcome'] as const;
 ```
 
-These names are the contract and are not renamed. `event` and `outcome` come from the
-call site; `correlationId` comes from the middleware, or from the message seam.
+These names are the contract and are not renamed. On handler lines `event` and `outcome` come
+from the call site; `correlationId` comes from the middleware, or from the message seam. On the
+automatic request and message lines `event` comes from `autoEvents`.
+
+## Automatic line events
+
+The automatic line pino-http and the message seam write at the end of a request or message carries no `event` by default. Name it with `autoEvents`:
+
+```ts
+createLoggerModule({
+  service: 'example-app',
+  autoEvents: { request: 'http.request', message: 'message.received' },
+});
+```
+
+`request` names the `event` on the automatic HTTP request-completion line, on both success and
+error; `message` names it on the automatic microservice completion line, on both completed and
+errored. Each name must be a non-empty string after trimming, or `createLoggerModule` throws a
+`TypeError` naming the option. `msg` and handler lines are unchanged: a handler keeps its own
+`{ event }` and message text; an `assign`ed `event` wins on the automatic line too.
 
 ## Context fields
 
