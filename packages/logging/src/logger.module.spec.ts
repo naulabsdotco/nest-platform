@@ -1,7 +1,9 @@
+import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Logger, LoggerModule, PARAMS_PROVIDER_TOKEN, type Params } from 'nestjs-pino';
 import pinoHttp, { type Options } from 'pino-http';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { AutoEvents } from './index';
 import { DEFAULT_REDACT_PATHS } from './redact';
 import { LOG_FIELDS, createLoggerModule, type LoggerOptions } from './logger.module';
 
@@ -29,6 +31,58 @@ const lineFor = (opts: LoggerOptions, request: Record<string, unknown>): Record<
   log.info({ event: 'handler' }, 'handler');
   return JSON.parse(lines[lines.length - 1] ?? '{}');
 };
+
+const automaticLineFor = (
+  opts: LoggerOptions,
+  request: Record<string, unknown> = {},
+  statusCode = 200,
+  event?: string,
+): Record<string, unknown> => {
+  const lines: string[] = [];
+  const handler = pinoHttp({
+    ...(paramsOf(opts).pinoHttp as Options),
+    stream: { write: (chunk) => void lines.push(chunk) },
+  });
+  const req = { headers: {}, ...request };
+  const res = Object.assign(new EventEmitter(), { setHeader() {}, statusCode });
+  handler(req as unknown as IncomingMessage, res as unknown as ServerResponse, () => {});
+  if (event) (res as unknown as { log: { setBindings(fields: object): void } }).log.setBindings({ event });
+  res.emit('finish');
+  return JSON.parse(lines[lines.length - 1] ?? '{}');
+};
+
+describe('automatic line events', () => {
+  it('names the event on the automatic HTTP success and error lines', () => {
+    const opts = { service: 'example-app', autoEvents: { request: 'http.request' } };
+    expectTypeOf<AutoEvents>().toEqualTypeOf<{ request?: string; message?: string }>();
+    expect(automaticLineFor(opts).event).toBe('http.request');
+    expect(automaticLineFor(opts, {}, 500).event).toBe('http.request');
+  });
+
+  it('leaves automatic HTTP lines without an event by default', () => {
+    expect(automaticLineFor({ service: 'example-app' }).event).toBeUndefined();
+    expect(automaticLineFor({ service: 'example-app' }, {}, 500).event).toBeUndefined();
+  });
+
+  it('lets a handler-assigned event win on the automatic HTTP line', () => {
+    const opts = { service: 'example-app', autoEvents: { request: 'http.request' } };
+    const inbound = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+    const automatic = automaticLineFor(opts, { headers: { 'x-correlation-id': inbound } }, 200, 'handler-event');
+    const handler = lineFor(opts, { headers: { 'x-correlation-id': inbound } });
+
+    expect(automatic.event).toBe('handler-event');
+    expect(automatic.correlationId).toBe(inbound);
+    expect(handler.event).toBe('handler');
+    expect(handler.msg).toBe('handler');
+  });
+
+  it('rejects an empty, whitespace or non-string event name', () => {
+    for (const name of ['', '   ', 42 as unknown as string]) {
+      expect(() => createLoggerModule({ service: 'example-app', autoEvents: { request: name } })).toThrow(TypeError);
+      expect(() => createLoggerModule({ service: 'example-app', autoEvents: { message: name } })).toThrow(TypeError);
+    }
+  });
+});
 
 describe('createLoggerModule', () => {
   it('provides a logger and binds correlationId on the emitted line', () => {

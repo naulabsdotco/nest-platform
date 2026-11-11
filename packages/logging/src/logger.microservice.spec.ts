@@ -50,7 +50,11 @@ const contextOf = (context: unknown): ExecutionContext =>
   ({ getType: () => 'rpc', switchToRpc: () => ({ getContext: () => context, getData: () => ({}) }) }) as unknown as
     ExecutionContext;
 
-const deliver = (context: unknown, handle: (logger: PinoLogger) => void | Promise<void>): Promise<void> => {
+const deliverWith = (
+  hook: Hook,
+  context: unknown,
+  handle: (logger: PinoLogger) => void | Promise<void>,
+): Promise<void> => {
   const logger = new PinoLogger(params);
   const source = {
     subscribe(observer: Observer) {
@@ -70,6 +74,9 @@ const deliver = (context: unknown, handle: (logger: PinoLogger) => void | Promis
     hook(contextOf(context), () => source).subscribe({ next: () => {}, error: reject, complete: resolve });
   });
 };
+
+const deliver = (context: unknown, handle: (logger: PinoLogger) => void | Promise<void>): Promise<void> =>
+  deliverWith(hook, context, handle);
 
 const emitted = (): Record<string, unknown>[] => lines.map((line) => JSON.parse(line) as Record<string, unknown>);
 const lineWith = (message: string): Record<string, unknown> =>
@@ -193,5 +200,58 @@ describe('microservice logging', () => {
     expect(lineWith('message errored').durationMs).toBeTypeOf('number');
     expect(lineWith('message errored').tenantId).toBe('acme');
     expect((lineWith('message errored').err as { message: string }).message).toBe('boom');
+  });
+});
+
+describe('automatic line events', () => {
+  const deliverEvent = (
+    autoEvents: LoggerOptions['autoEvents'],
+    context: unknown,
+    handle: (logger: PinoLogger) => void | Promise<void>,
+  ): Promise<void> => {
+    const built = (createLoggerModule({ ...options, autoEvents }).providers ?? []) as Array<{
+      provide?: unknown;
+      useValue?: Params;
+      useFactory?: (params: Params) => Hook;
+    }>;
+    const paramsFor = built.find((provider) => provider.provide === PARAMS_PROVIDER_TOKEN)?.useValue;
+    const hookFor = built.find((provider) => provider.provide === PINO_PRE_REQUEST_HOOK)?.useFactory?.(
+      paramsFor as Params,
+    ) as Hook;
+    return deliverWith(hookFor, context, handle);
+  };
+
+  it('lets a handler-assigned event win on the automatic message completed line', async () => {
+    await deliverEvent({ message: 'message.received' }, kafka({}), (logger) => {
+      logger.assign({ event: 'handler-event' });
+      logger.info({ event: 'handler' }, 'handled');
+    });
+
+    expect(lineWith('message completed').event).toBe('handler-event');
+  });
+
+  it('names the event on the automatic message errored line', async () => {
+    await deliverEvent({ message: 'message.received' }, kafka({}), () => {
+      throw new Error('boom');
+    }).catch(() => {});
+
+    expect(lineWith('message errored').event).toBe('message.received');
+  });
+
+  it('leaves automatic message lines without an event by default', async () => {
+    await deliver(kafka({}), (logger) => logger.info({ event: 'handler' }, 'handled'));
+
+    expect(lineWith('message completed').event).toBeUndefined();
+  });
+
+  it('keeps the handler event and msg while the automatic line carries the configured event', async () => {
+    await deliverEvent({ message: 'message.received' }, kafka({ 'x-correlation-id': UUID_ONE }), (logger) =>
+      logger.info({ event: 'handler' }, 'handled'),
+    );
+
+    expect(lineWith('handled').event).toBe('handler');
+    expect(lineWith('handled').msg).toBe('handled');
+    expect(lineWith('message completed').event).toBe('message.received');
+    expect(lineWith('message completed').correlationId).toBe(UUID_ONE);
   });
 });

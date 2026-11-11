@@ -23,7 +23,8 @@ missing keys and never echoes their values. `zod` is a peer dependency.
 const CORRELATION_HEADER = 'x-correlation-id';
 const DEFAULT_REDACT_PATHS: readonly string[];
 const LOG_FIELDS: readonly ['event', 'correlationId', 'outcome'];
-interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[] }
+interface AutoEvents { request?: string; message?: string }
+interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; autoEvents?: AutoEvents }
 function createLoggerModule(opts: LoggerOptions): DynamicModule;
 function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 ```
