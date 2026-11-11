@@ -3,5 +3,5 @@ export {
   correlationMiddleware,
   type RequestHandler,
 } from './correlation.middleware';
-export { LOG_FIELDS, createLoggerModule, type AutoEvents, type LoggerOptions } from './logger.module';
+export { LOG_FIELDS, createLoggerModule, type AutoEvents, type LoggerOptions, type MicroserviceLoggerOptions } from './logger.module';
 export { DEFAULT_REDACT_PATHS } from './redact';

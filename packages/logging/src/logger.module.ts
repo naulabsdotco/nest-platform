@@ -1,7 +1,12 @@
 import type { DynamicModule, ExecutionContext } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import type { DestinationStream, Logger, LogFn } from 'pino';
-import { CORRELATION_HEADER, type CorrelationRequest, correlationIdOf } from './correlation.middleware';
+import {
+  CORRELATION_HEADER,
+  type CorrelationRequest,
+  correlationIdFrom,
+  correlationIdOf,
+} from './correlation.middleware';
 import { resolveRedactPaths } from './redact';
 import { messageCorrelationId } from './rpc.correlation';
 
@@ -13,13 +18,17 @@ export interface AutoEvents {
   message?: string;
 }
 
+export interface MicroserviceLoggerOptions {
+  genReqId?: (context: ExecutionContext) => string | Buffer | readonly string[];
+}
+
 export interface LoggerOptions {
   service: string;
   level?: string;
   correlationHeader?: string;
   redactExtra?: readonly string[];
   contextFields?: readonly string[];
-  microservice?: boolean;
+  microservice?: boolean | MicroserviceLoggerOptions;
   autoEvents?: AutoEvents;
   destination?: DestinationStream;
 }
@@ -75,7 +84,25 @@ function messageData(context: ExecutionContext): Record<string, unknown> {
 export function createLoggerModule(opts: LoggerOptions): DynamicModule {
   const header = opts.correlationHeader ?? CORRELATION_HEADER;
   const contextFields = opts.contextFields ?? [];
-  const microservice = opts.microservice === true;
+  const microserviceOptions: MicroserviceLoggerOptions | undefined =
+    opts.microservice === true
+      ? {}
+      : typeof opts.microservice === 'object' && opts.microservice !== null
+        ? opts.microservice
+        : undefined;
+  const microservice = microserviceOptions !== undefined;
+  // An app-owned id is trusted only through the same canonical check as an inbound header;
+  // an invalid return or a throw must never fail the message.
+  const messageRequestId = (context: ExecutionContext): string => {
+    if (microserviceOptions?.genReqId) {
+      try {
+        return correlationIdFrom(microserviceOptions.genReqId(context));
+      } catch {
+        // Fall through to the transport's own metadata.
+      }
+    }
+    return messageCorrelationId(context, header);
+  };
   const requestEvent = eventName(opts.autoEvents?.request, 'autoEvents.request');
   const messageEvent = eventName(opts.autoEvents?.message, 'autoEvents.message');
   return LoggerModule.forRoot({
@@ -107,7 +134,7 @@ export function createLoggerModule(opts: LoggerOptions): DynamicModule {
     ...(microservice
       ? {
           microservice: {
-            genReqId: (context: ExecutionContext) => messageCorrelationId(context, header),
+            genReqId: messageRequestId,
             customAttributeKeys: { reqId: 'correlationId', responseTime: 'durationMs' },
             ...(contextFields.length > 0
               ? {

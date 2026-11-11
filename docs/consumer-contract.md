@@ -24,15 +24,18 @@ const CORRELATION_HEADER = 'x-correlation-id';
 const DEFAULT_REDACT_PATHS: readonly string[];
 const LOG_FIELDS: readonly ['event', 'correlationId', 'outcome'];
 interface AutoEvents { request?: string; message?: string }
-interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; autoEvents?: AutoEvents }
+interface MicroserviceLoggerOptions { genReqId?: (context: ExecutionContext) => string | Buffer | readonly string[] }
+interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; microservice?: boolean | MicroserviceLoggerOptions; autoEvents?: AutoEvents }
 function createLoggerModule(opts: LoggerOptions): DynamicModule;
 function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 ```
 
 Field names are the contract. A consumer adds context fields and redactions; it cannot remove a
 default redaction path. `contextFields` reads HTTP request fields and, with `microservice`, message
-data; a field that shadows a reserved, automatic, base or module name is ignored on both. `pino` and
-`nestjs-pino` are peer dependencies.
+data; a field that shadows a reserved, automatic, base or module name is ignored on both. With
+`microservice`, `genReqId` may supply the message id; a non-canonical return becomes a generated
+UUID and a throw falls back to the transport metadata. `pino` and `nestjs-pino` are peer
+dependencies.
 
 ## `@naulabsco/errors`
 
