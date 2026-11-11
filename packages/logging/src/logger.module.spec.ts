@@ -113,6 +113,17 @@ describe('createLoggerModule', () => {
     expect(emitted.correlationId).not.toBe('renamed');
   });
 
+  it('never lets a consumer context field shadow an automatic, base or module name', () => {
+    const emitted = lineFor(
+      { service: 'example-app', contextFields: ['level', 'time', 'msg', 'service'] },
+      { level: 'renamed', time: 'renamed', msg: 'renamed', service: 'renamed' },
+    );
+
+    expect(emitted.level).toBe(30);
+    expect(emitted.msg).toBe('handler');
+    expect(emitted.service).toBe('example-app');
+  });
+
   it('appends consumer redactions without dropping the defaults', () => {
     const { redact } = paramsOf({ service: 'example-app', redactExtra: ['subjectEmail'] }).pinoHttp as Options;
 

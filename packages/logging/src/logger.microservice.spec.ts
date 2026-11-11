@@ -46,14 +46,15 @@ const natsHeaders = (entries: Record<string, string>) => ({
   get: (name: string) => (entries[name] === undefined ? undefined : [entries[name]]),
 });
 
-const contextOf = (context: unknown): ExecutionContext =>
-  ({ getType: () => 'rpc', switchToRpc: () => ({ getContext: () => context, getData: () => ({}) }) }) as unknown as
+const contextOf = (context: unknown, data: unknown = {}): ExecutionContext =>
+  ({ getType: () => 'rpc', switchToRpc: () => ({ getContext: () => context, getData: () => data }) }) as unknown as
     ExecutionContext;
 
 const deliverWith = (
   hook: Hook,
   context: unknown,
   handle: (logger: PinoLogger) => void | Promise<void>,
+  data: unknown = {},
 ): Promise<void> => {
   const logger = new PinoLogger(params);
   const source = {
@@ -71,7 +72,7 @@ const deliverWith = (
     },
   };
   return new Promise((resolve, reject) => {
-    hook(contextOf(context), () => source).subscribe({ next: () => {}, error: reject, complete: resolve });
+    hook(contextOf(context, data), () => source).subscribe({ next: () => {}, error: reject, complete: resolve });
   });
 };
 
@@ -200,6 +201,94 @@ describe('microservice logging', () => {
     expect(lineWith('message errored').durationMs).toBeTypeOf('number');
     expect(lineWith('message errored').tenantId).toBe('acme');
     expect((lineWith('message errored').err as { message: string }).message).toBe('boom');
+  });
+});
+
+describe('context fields on message lines', () => {
+  const hookFor = (contextFields?: readonly string[]): Hook => {
+    const built = (createLoggerModule({ ...options, contextFields }).providers ?? []) as Array<{
+      provide?: unknown;
+      useValue?: Params;
+      useFactory?: (params: Params) => Hook;
+    }>;
+    const paramsFor = built.find((provider) => provider.provide === PARAMS_PROVIDER_TOKEN)?.useValue;
+    return built.find((provider) => provider.provide === PINO_PRE_REQUEST_HOOK)?.useFactory?.(
+      paramsFor as Params,
+    ) as Hook;
+  };
+
+  it('projects a message-data field onto the handler and closing lines', async () => {
+    await deliverWith(hookFor(['scope']), kafka({}), (logger) => logger.info({ event: 'example.run' }, 'handled'), {
+      scope: 'example',
+    });
+
+    expect(lineWith('handled').scope).toBe('example');
+    expect(lineWith('message completed').scope).toBe('example');
+  });
+
+  it('leaves message lines without extra bindings when contextFields is absent', async () => {
+    await deliverWith(
+      hookFor(),
+      kafka({}),
+      (logger) => {
+        logger.assign({ tenantId: 'acme' });
+        logger.info({ event: 'example.run' }, 'handled');
+      },
+      { scope: 'example' },
+    );
+
+    expect(lineWith('handled').scope).toBeUndefined();
+    expect(lineWith('message completed').scope).toBeUndefined();
+    expect(lineWith('handled').tenantId).toBe('acme');
+  });
+
+  it('adds no context field when the message data is null, an array or a primitive', async () => {
+    for (const data of [null, ['example'], 'example']) {
+      lines.length = 0;
+      await deliverWith(hookFor(['scope']), kafka({}), (logger) =>
+        logger.info({ event: 'example.run' }, 'handled'), data);
+
+      expect(lineWith('handled')).not.toHaveProperty('scope');
+      expect(lineWith('message completed')).not.toHaveProperty('scope');
+    }
+  });
+
+  it('ignores context fields that shadow automatic, base or module fields', async () => {
+    const shadowing = {
+      level: 'x', time: 'x', msg: 'x', service: 'x', durationMs: 'x', rpc: 'x',
+      event: 'x', correlationId: 'x', outcome: 'x', req: 'x', responseTime: 'x',
+    };
+    await deliverWith(hookFor(Object.keys(shadowing)), kafka({}), (logger) =>
+      logger.info({ event: 'example.run' }, 'handled'), shadowing);
+
+    const handler = lineWith('handled');
+    expect(handler.level).toBe(30);
+    expect(handler.msg).toBe('handled');
+    expect(handler.service).toBe('example-app');
+    expect(handler.event).toBe('example.run');
+    expect(handler.correlationId).toMatch(UUID_V4);
+    expect(handler).not.toHaveProperty('req');
+    expect(handler).not.toHaveProperty('responseTime');
+    expect(lineWith('message completed').durationMs).toBeTypeOf('number');
+  });
+
+  it('keeps two overlapping messages in their own context data', async () => {
+    let release = (): void => {};
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const hook = hookFor(['scope']);
+    const first = deliverWith(hook, kafka({ 'x-correlation-id': UUID_ONE }), async (logger) => {
+      await blocked;
+      logger.info({ event: 'first' }, 'first');
+    }, { scope: 'one' });
+    const second = deliverWith(hook, kafka({ 'x-correlation-id': UUID_TWO }), (logger) =>
+      logger.info({ event: 'second' }, 'second'), { scope: 'two' });
+
+    await second;
+    release();
+    await first;
+
+    expect(lineWith('first').scope).toBe('one');
+    expect(lineWith('second').scope).toBe('two');
   });
 });
 

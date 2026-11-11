@@ -30,7 +30,9 @@ function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 ```
 
 Field names are the contract. A consumer adds context fields and redactions; it cannot remove a
-default redaction path. `pino` and `nestjs-pino` are peer dependencies.
+default redaction path. `contextFields` reads HTTP request fields and, with `microservice`, message
+data; a field that shadows a reserved, automatic, base or module name is ignored on both. `pino` and
+`nestjs-pino` are peer dependencies.
 
 ## `@naulabsco/errors`
 

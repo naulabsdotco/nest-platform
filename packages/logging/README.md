@@ -89,6 +89,28 @@ The seam needs NestJS 12.0.2 or later and `nestjs-pino` 5.2 or later, both peer 
 earlier 12.0.x releases mangled a handler's plain return value once a pre-request hook was
 present, and 5.0/5.1 have no message seam at all.
 
+## Context fields on message lines
+
+With `microservice` on, the same `contextFields` are read once from the message data
+(`context.switchToRpc().getData()`) and bound to every line of that message, handler and
+closing alike:
+
+```ts
+createLoggerModule({ service: 'example-app', microservice: true, contextFields: ['tenantId'] });
+```
+
+```ts
+@MessagePattern('example.run')
+run(@Payload() data: { tenantId: string }) {
+  this.logger.info({ event: 'example.run' }, 'handled');
+}
+```
+
+The data must be an object; `null`, an array or a primitive adds no field and does not
+throw. A field the handler discovers later still arrives through `PinoLogger.assign`, and the
+reserved-name rule in `## Context fields` holds on message lines too. Two messages in flight
+keep their own values.
+
 ## The field contract
 
 Every line carries the reserved fields in `LOG_FIELDS`:
@@ -129,9 +151,12 @@ app.use(setTenantContext);
 createLoggerModule({ service: 'example-app', contextFields: ['tenantId', 'role'] });
 ```
 
-A value discovered later — in a guard, say — is bound at log time with `PinoLogger.assign`
-instead; a message handler has only `assign`. `contextFields` may not shadow a reserved
-name; a collision is ignored.
+A field name is ignored when it is reserved: the `LOG_FIELDS`, pino's automatic keys
+(`level`, `time`, `msg`, `pid`, `hostname`, `v`), pino-http's (`req`, `res`, `err`,
+`responseTime`), or the module's (`service`, `durationMs`, `rpc`). This applies to HTTP too,
+so a 0.3.0 consumer that listed one of those names now gets no binding rather than a
+clobbered automatic field. A value discovered later — in a guard, say — is bound at log time
+with `PinoLogger.assign`.
 
 ## Redaction
 
