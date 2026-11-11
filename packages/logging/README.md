@@ -138,6 +138,22 @@ lowercase; anything else becomes a generated UUID, so an untrusted value is neve
 falls back to the transport metadata, so logging never fails a message. `microservice: {}` enables
 the seam like `microservice: true`. The accepted id is on every line, the closing line included.
 
+A handler reads the id in use with `currentCorrelationId`, passing its injected `PinoLogger`:
+
+```ts
+import { currentCorrelationId } from '@naulabsco/logging';
+
+@MessagePattern('example.run')
+run() {
+  const correlationId = currentCorrelationId(this.logger);
+  this.logger.info({ event: 'example.run', correlationId }, 'handled');
+}
+```
+
+It returns the id bound to the current message — the same value carried by every line of that
+message, the closing line included — and `undefined` outside a bound message context. An optional
+second argument names a different binding key.
+
 ## The field contract
 
 Every line carries the reserved fields in `LOG_FIELDS`:

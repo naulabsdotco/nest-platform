@@ -1,5 +1,5 @@
 import type { DynamicModule, ExecutionContext } from '@nestjs/common';
-import { LoggerModule } from 'nestjs-pino';
+import { LoggerModule, type PinoLogger } from 'nestjs-pino';
 import type { DestinationStream, Logger, LogFn } from 'pino';
 import {
   CORRELATION_HEADER,
@@ -67,6 +67,12 @@ function contextProps(source: Record<string, unknown>, contextFields: readonly s
     if (!RESERVED_FIELDS.has(field) && source[field] !== undefined) props[field] = source[field];
   }
   return props;
+}
+
+// The id is bound per message, so a handler reads it rather than re-deriving it.
+export function currentCorrelationId(logger: PinoLogger, key = 'correlationId'): string | undefined {
+  const value = logger.logger.bindings()[key];
+  return typeof value === 'string' ? value : undefined;
 }
 
 // Message data is the consumer's; anything that is not a plain object has no fields to read.

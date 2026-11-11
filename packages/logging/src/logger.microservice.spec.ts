@@ -2,7 +2,12 @@ import type { ExecutionContext } from '@nestjs/common';
 import { KafkaContext, NatsContext, RmqContext, TcpContext } from '@nestjs/microservices';
 import { PARAMS_PROVIDER_TOKEN, PINO_PRE_REQUEST_HOOK, PinoLogger, type Params } from 'nestjs-pino';
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { createLoggerModule, type LoggerOptions, type MicroserviceLoggerOptions } from './logger.module';
+import {
+  createLoggerModule,
+  currentCorrelationId,
+  type LoggerOptions,
+  type MicroserviceLoggerOptions,
+} from './logger.module';
 
 const UUID_ONE = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
 const UUID_TWO = '9c858901-8a57-4791-81fe-4c455b099bc9';
@@ -392,6 +397,38 @@ describe('message correlation id', () => {
 
     expect(lineWith('handled').correlationId).toBe(UUID_ONE);
     expect(lineWith('message completed').correlationId).toBe(UUID_ONE);
+  });
+});
+
+describe('current correlation id', () => {
+  it('reads the id bound to the current message', async () => {
+    let seen: string | undefined;
+    await deliver(kafka({ 'x-correlation-id': UUID_ONE }), (logger) => {
+      seen = currentCorrelationId(logger);
+      logger.info({ event: 'example.run' }, 'handled');
+    });
+
+    expect(seen).toBe(UUID_ONE);
+    expect(seen).toBe(lineWith('handled').correlationId);
+    expect(seen).toBe(lineWith('message completed').correlationId);
+  });
+
+  it('returns undefined outside a bound message context', () => {
+    expect(currentCorrelationId(new PinoLogger(params))).toBeUndefined();
+  });
+
+  it('returns undefined for a non-string binding', () => {
+    const logger = new PinoLogger(params);
+    logger.runInContext(() => expect(currentCorrelationId(logger)).toBeUndefined(), {
+      bindings: { correlationId: 42 },
+    });
+  });
+
+  it('reads a custom key', () => {
+    const logger = new PinoLogger(params);
+    logger.runInContext(() => expect(currentCorrelationId(logger, 'traceId')).toBe('trace-1'), {
+      bindings: { traceId: 'trace-1' },
+    });
   });
 });
 
