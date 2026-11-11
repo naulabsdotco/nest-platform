@@ -141,6 +141,13 @@ describe('createLoggerModule', () => {
     expect(paramsOf({ service: 'example-app', microservice: true }).assignResponse).toBe(true);
   });
 
+  it('enables the message seam and closing-line binding for an empty microservice object', () => {
+    const params = paramsOf({ service: 'example-app', microservice: {} });
+
+    expect(params.microservice).toBeTruthy();
+    expect(params.assignResponse).toBe(true);
+  });
+
   it('writes the lines to a consumer-supplied destination', () => {
     const destination = { write: () => {} };
 

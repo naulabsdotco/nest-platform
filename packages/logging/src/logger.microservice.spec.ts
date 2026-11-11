@@ -1,8 +1,8 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { KafkaContext, NatsContext, RmqContext, TcpContext } from '@nestjs/microservices';
 import { PARAMS_PROVIDER_TOKEN, PINO_PRE_REQUEST_HOOK, PinoLogger, type Params } from 'nestjs-pino';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { createLoggerModule, type LoggerOptions } from './logger.module';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
+import { createLoggerModule, type LoggerOptions, type MicroserviceLoggerOptions } from './logger.module';
 
 const UUID_ONE = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
 const UUID_TWO = '9c858901-8a57-4791-81fe-4c455b099bc9';
@@ -289,6 +289,109 @@ describe('context fields on message lines', () => {
 
     expect(lineWith('first').scope).toBe('one');
     expect(lineWith('second').scope).toBe('two');
+  });
+});
+
+describe('message correlation id', () => {
+  it('accepts Buffer and array ids like correlationIdFrom', () => {
+    expectTypeOf<MicroserviceLoggerOptions['genReqId']>().toEqualTypeOf<
+      ((context: ExecutionContext) => string | Buffer | readonly string[]) | undefined
+    >();
+  });
+
+  const hookWith = (microservice: LoggerOptions['microservice']): Hook => {
+    const built = (createLoggerModule({ ...options, microservice }).providers ?? []) as Array<{
+      provide?: unknown;
+      useValue?: Params;
+      useFactory?: (params: Params) => Hook;
+    }>;
+    const paramsFor = built.find((provider) => provider.provide === PARAMS_PROVIDER_TOKEN)?.useValue;
+    return built.find((provider) => provider.provide === PINO_PRE_REQUEST_HOOK)?.useFactory?.(
+      paramsFor as Params,
+    ) as Hook;
+  };
+
+  const idLine = async (
+    genReqId: (context: ExecutionContext) => unknown,
+    context: unknown = kafka({}),
+  ): Promise<Record<string, unknown>> => {
+    await deliverWith(
+      hookWith({ genReqId: genReqId as (context: ExecutionContext) => string }),
+      context,
+      (logger) => logger.info({ event: 'example.run' }, 'handled'),
+    );
+    return lineWith('handled');
+  };
+
+  it('binds an app-supplied canonical UUID to the handler and closing lines', async () => {
+    let calls = 0;
+    const hook = hookWith({ genReqId: () => (calls += 1, UUID_ONE) });
+    await deliverWith(hook, new TcpContext([{} as never, 'example']), (logger) =>
+      logger.info({ event: 'example.run' }, 'handled'),
+    );
+
+    expect(calls).toBe(1);
+    expect(lineWith('handled').correlationId).toBe(UUID_ONE);
+    expect(lineWith('message completed').correlationId).toBe(UUID_ONE);
+  });
+
+  it('prefers the app-supplied canonical id over an inbound header', async () => {
+    const line = await idLine(() => UUID_TWO, kafka({ 'x-correlation-id': UUID_ONE }));
+
+    expect(line.correlationId).toBe(UUID_TWO);
+    expect(lineWith('message completed').correlationId).toBe(UUID_TWO);
+  });
+
+  it('generates an id for a non-canonical or raw header value', async () => {
+    const raw = { 'x-correlation-id': Buffer.from(UUID_ONE) };
+    for (const value of ['not-a-uuid', 'not-a-uuid\ninjected', raw]) {
+      lines.length = 0;
+      const line = await idLine(() => value);
+
+      expect(line.correlationId).toMatch(UUID_V4);
+      expect(lines.join('')).not.toContain('not-a-uuid');
+      expect(lines.join('')).not.toContain('injected');
+      expect(lines.join('')).not.toContain(UUID_ONE);
+    }
+  });
+
+  it('accepts a canonical UUID in a Buffer and folds it to lowercase', async () => {
+    const line = await idLine(() => Buffer.from(UUID_ONE.toUpperCase()));
+
+    expect(line.correlationId).toBe(UUID_ONE);
+  });
+
+  it('generates an id for a Buffer that is not a canonical UUID', async () => {
+    const line = await idLine(() => Buffer.from('not-a-uuid'));
+
+    expect(line.correlationId).toMatch(UUID_V4);
+    expect(lines.join('')).not.toContain('not-a-uuid');
+  });
+
+  it('generates an id for a non-string callback result', async () => {
+    for (const value of [{ id: UUID_TWO }, 42]) {
+      lines.length = 0;
+      expect((await idLine(() => value)).correlationId).toMatch(UUID_V4);
+    }
+  });
+
+  it('falls back to the transport metadata when the callback throws', async () => {
+    const line = await idLine(() => {
+      throw new Error('raw-throw-value');
+    }, kafka({ 'x-correlation-id': UUID_ONE }));
+
+    expect(line.correlationId).toBe(UUID_ONE);
+    expect(lineWith('message completed').correlationId).toBe(UUID_ONE);
+    expect(lines.join('')).not.toContain('raw-throw-value');
+  });
+
+  it('keeps the default resolver for microservice: true', async () => {
+    await deliver(kafka({ 'x-correlation-id': UUID_ONE }), (logger) =>
+      logger.info({ event: 'example.run' }, 'handled'),
+    );
+
+    expect(lineWith('handled').correlationId).toBe(UUID_ONE);
+    expect(lineWith('message completed').correlationId).toBe(UUID_ONE);
   });
 });
 

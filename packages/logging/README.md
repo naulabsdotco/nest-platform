@@ -111,6 +111,33 @@ throw. A field the handler discovers later still arrives through `PinoLogger.ass
 reserved-name rule in `## Context fields` holds on message lines too. Two messages in flight
 keep their own values.
 
+## Message correlation id
+
+By default the seam reads the id from the transport metadata and generates one when it is absent,
+as described under `### Microservice transports`. When the id arrives somewhere the seam does not
+read, or a transport has no headers at all, supply it from the message context:
+
+```ts
+import { Ctx, MessagePattern } from '@nestjs/microservices';
+import type { ExecutionContext } from '@nestjs/common';
+
+createLoggerModule({
+  service: 'example-app',
+  microservice: { genReqId: (context) => readMessageId(context) },
+});
+
+@MessagePattern('example.run')
+run(@Ctx() context: ExecutionContext) {
+  this.logger.info({ event: 'example.run' }, 'handled');
+}
+```
+
+`readMessageId` reads the app's own transport metadata. It runs once per message. Its return must
+be a canonical UUID — a string, `Buffer` or one-element array — which is accepted and folded to
+lowercase; anything else becomes a generated UUID, so an untrusted value is never logged. A throw
+falls back to the transport metadata, so logging never fails a message. `microservice: {}` enables
+the seam like `microservice: true`. The accepted id is on every line, the closing line included.
+
 ## The field contract
 
 Every line carries the reserved fields in `LOG_FIELDS`:
