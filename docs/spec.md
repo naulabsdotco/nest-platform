@@ -40,6 +40,7 @@ interface MicroserviceLoggerOptions { genReqId?: (context: ExecutionContext) => 
 interface LoggerOptions { service: string; level?: string; correlationHeader?: string; redactExtra?: readonly string[]; contextFields?: readonly string[]; microservice?: boolean | MicroserviceLoggerOptions; autoEvents?: AutoEvents; destination?: DestinationStream }
 function createLoggerModule(opts: LoggerOptions): DynamicModule;
 function correlationMiddleware(opts?: { header?: string }): RequestHandler;
+function currentCorrelationId(logger: PinoLogger, key?: string): string | undefined;
 ```
 
 Field names are the contract. A consumer adds context fields and redactions; it cannot remove a
