@@ -24,7 +24,16 @@ export interface LoggerOptions {
   destination?: DestinationStream;
 }
 
-const RESERVED_FIELDS = new Set<string>(LOG_FIELDS);
+const PINO_AUTOMATIC = ['level', 'time', 'msg', 'pid', 'hostname', 'v'] as const;
+const HTTP_AUTOMATIC = ['req', 'res', 'err', 'responseTime'] as const;
+const MODULE_DERIVED = ['service', 'durationMs', 'rpc'] as const;
+
+const RESERVED_FIELDS = new Set<string>([
+  ...LOG_FIELDS,
+  ...PINO_AUTOMATIC,
+  ...HTTP_AUTOMATIC,
+  ...MODULE_DERIVED,
+]);
 
 function eventName(value: unknown, option: string): string | undefined {
   if (value === undefined) return undefined;
@@ -49,6 +58,18 @@ function contextProps(source: Record<string, unknown>, contextFields: readonly s
     if (!RESERVED_FIELDS.has(field) && source[field] !== undefined) props[field] = source[field];
   }
   return props;
+}
+
+// Message data is the consumer's; anything that is not a plain object has no fields to read.
+function messageData(context: ExecutionContext): Record<string, unknown> {
+  try {
+    const data = context.switchToRpc().getData();
+    return data !== null && typeof data === 'object' && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 export function createLoggerModule(opts: LoggerOptions): DynamicModule {
@@ -88,6 +109,12 @@ export function createLoggerModule(opts: LoggerOptions): DynamicModule {
           microservice: {
             genReqId: (context: ExecutionContext) => messageCorrelationId(context, header),
             customAttributeKeys: { reqId: 'correlationId', responseTime: 'durationMs' },
+            ...(contextFields.length > 0
+              ? {
+                  customProps: (context: ExecutionContext) =>
+                    contextProps(messageData(context), contextFields),
+                }
+              : {}),
             ...(messageEvent
               ? {
                   customSuccessObject: (_context: ExecutionContext, _result: unknown, value: object) =>

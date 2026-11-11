@@ -42,7 +42,9 @@ function correlationMiddleware(opts?: { header?: string }): RequestHandler;
 ```
 
 Field names are the contract. A consumer adds context fields and redactions; it cannot remove a
-default redaction path. `microservice: true` gives a non-HTTP message handler the same correlation
+default redaction path. `contextFields` reads HTTP request fields and, with `microservice`, message
+data; a field that shadows a reserved, automatic, base or module name is ignored on both.
+`microservice: true` gives a non-HTTP message handler the same correlation
 id and `durationMs` through the `nestjs-pino` message seam; the handler binds its own context fields
 with `PinoLogger.assign`.
 ### `@naulabsco/errors`
